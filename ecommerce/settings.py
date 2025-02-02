@@ -1,3 +1,4 @@
+
 """
 Django settings for ecommerce project.
 
@@ -32,9 +33,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECURE_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['147.93.27.233','tstocks.in']
 
 # Application definition
 
@@ -50,8 +51,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'orders',
     'products',
-    'users',
-    'ecommerce'
+    'users'
 ]
 
 MIDDLEWARE = [
