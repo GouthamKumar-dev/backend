@@ -1,18 +1,18 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserViewSet, LoginView, CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView
+from .views import UserViewSet, LoginView, CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
 
-router = DefaultRouter()
-router.register(r'users', UserViewSet)
+
+# router = DefaultRouter()
+# router.register(r'users', UserViewSet)
 
 urlpatterns = [
-    # Include the DRF router for UserViewSet
-    path('', include(router.urls)),
-
+    # my profile only
+    path('me/', user_me, name='user-me'),
     # Add token creation, login, and logout endpoints
     # Token related
     path('login/', LoginView.as_view(), name='login'),
