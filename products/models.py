@@ -2,7 +2,6 @@ from django.db import models
 from users.models import CustomUser
 
 class Category(models.Model):
-
     class Meta:
         db_table = 'category'
 
@@ -15,7 +14,6 @@ class Category(models.Model):
         return self.name
 
 class Product(models.Model):
-
     class Meta:
         db_table = 'products'
 
@@ -31,3 +29,21 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    def favorite_count(self):
+        return self.favorites.count()  # Count how many users have favorited this product
+
+
+class Favorite(models.Model):
+    class Meta:
+        db_table = 'favorites'
+        unique_together = ('user', 'product')  # Prevent duplicate favorites
+
+    favorite_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='favorites')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='favorites')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.product.name}"

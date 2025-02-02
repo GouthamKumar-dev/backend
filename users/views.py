@@ -1,5 +1,6 @@
 # views.py
 from rest_framework import viewsets
+from rest_framework.decorators import api_view, permission_classes
 from .models import CustomUser
 from .serializers import UserSerializer,CustomTokenObtainPairSerializer,CustomTokenRefreshSerializer
 from .permissions import IsAdminUser, IsStaffUser, IsOwnerOrAdmin
@@ -80,6 +81,15 @@ class UserViewSet(viewsets.ModelViewSet):
 class CustomTokenRefreshView(TokenRefreshView):
     serializer_class = CustomTokenRefreshSerializer
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_me(request):
+    return Response({
+        'phone_number': request.user.phone_number,
+        'username': request.user.username,
+        'email': request.user.email
+    })
+
 #logout view
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -98,7 +108,6 @@ class LogoutView(APIView):
             custom_serializer = CustomTokenRefreshSerializer(data={"refresh": refresh_token})
             if custom_serializer.is_valid():
                 token = RefreshToken(refresh_token)
-                print("I am here")
                 token.blacklist()
                 return Response({"message": "Successfully logged out"}, status=status.HTTP_200_OK)
             else:
