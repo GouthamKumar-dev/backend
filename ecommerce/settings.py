@@ -34,7 +34,7 @@ SECRET_KEY = os.getenv('SECURE_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['147.93.27.233']
 
 # Application definition
 
@@ -50,8 +50,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'orders',
     'products',
-    'users',
-    'ecommerce'
+    'users'
 ]
 
 MIDDLEWARE = [
