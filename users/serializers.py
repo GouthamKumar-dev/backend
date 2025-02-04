@@ -3,13 +3,90 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import serializers
-from .models import CustomUser
+from .models import CustomUser,UserRole
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import authenticate
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['user_id', 'username', 'email', 'phone_number', 'role']
+
+# **Signup Serializer**
+class SignupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'email', 'phone_number', 'password']
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        user = CustomUser.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            phone_number=validated_data['phone_number'],
+            password=validated_data['password']
+        )
+        return user
+
+# **Login Serializer**
+class LoginSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        phone_number = data.get("phone_number")
+        password = data.get("password")
+
+        if not phone_number or not password:
+            raise serializers.ValidationError("Phone number and password are required.")
+
+        user = authenticate(phone_number=phone_number, password=password)
+
+        if not user:
+            raise serializers.ValidationError("Invalid credentials.")
+
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            "user": UserSerializer(user).data,
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+class CreateUserSerializer(serializers.ModelSerializer):
+    role = serializers.ChoiceField(choices=UserRole.choices, required=True)  # Role is mandatory
+
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'email', 'phone_number', 'password', 'role']
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        request_user = self.context['request'].user  # Get the currently logged-in user
+
+        # Ensure only admins & staff can create users, and enforce role restrictions
+        if request_user.role == UserRole.ADMIN:
+            # Admins can create ADMIN, STAFF, and CUSTOMERS
+            allowed_roles = [UserRole.ADMIN, UserRole.STAFF, UserRole.CUSTOMER]
+        elif request_user.role == UserRole.STAFF:
+            # Staff can only create STAFF and CUSTOMERS
+            allowed_roles = [UserRole.STAFF, UserRole.CUSTOMER]
+        else:
+            raise serializers.ValidationError("You are not authorized to create users.")
+
+        # Check if the provided role is allowed
+        if validated_data['role'] not in allowed_roles:
+            raise serializers.ValidationError(f"You can only create users with roles: {allowed_roles}")
+
+        # Create user
+        user = CustomUser.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            phone_number=validated_data['phone_number'],
+            password=validated_data['password'],
+            role=validated_data['role'],  # Role is mandatory now
+        )
+        return user
 
 # custom token
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

@@ -31,7 +31,7 @@ class Product(models.Model):
         return self.name
 
     def favorite_count(self):
-        return self.favorites.count()  # Count how many users have favorited this product
+        return self.favorites.filter(is_active=True).count()  # Count how many users have favorited this product
 
 
 class Favorite(models.Model):
