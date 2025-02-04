@@ -1,10 +1,11 @@
 # views.py
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from .models import Product, Category, Favorite
 from .serializers import ProductSerializer, CategorySerializer, FavoriteSerializer
 from rest_framework.pagination import PageNumberPagination
+from users.permissions import *
 
 class ProductPagination(PageNumberPagination):
     page_size = 10  # Number of items per page (change as needed)
@@ -16,12 +17,18 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     pagination_class = ProductPagination
     http_method_names = ['get', 'post', 'delete', 'put']
+    permission_classes = [IsAuthenticated]  # Default for all methods
+
+    def get_permissions(self):
+        """ Assign different permissions for different actions. """
+        if self.action in ['create', 'update', 'destroy']:  # Admins/Staff only
+            self.permission_classes = [IsAuthenticated, IsAdminOrStaff]
+        else:  # Anyone can read
+            self.permission_classes = [permissions.AllowAny]
+        return super().get_permissions()
 
     def get_queryset(self):
-        """
-        Optionally filter products by 'is_active' query param.
-        If 'is_active' is provided, filter based on its value.
-        """
+        """ Optionally filter products by 'is_active' query param. """
         queryset = Product.objects.all()
         is_active = self.request.query_params.get('is_active', None)
         
@@ -33,11 +40,11 @@ class ProductViewSet(viewsets.ModelViewSet):
         return queryset
 
     def destroy(self, request, pk=None):
-        """ Soft delete: Set isActive to False """
+        """ Soft delete: Set `is_active` to False. """
         product = Product.objects.filter(product_id=pk).first()
         
         if product:
-            product.is_active = False  # Set the 'is_active' field to False
+            product.is_active = False
             product.save()
 
             # Check if the associated category has any active products
@@ -68,6 +75,15 @@ class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     pagination_class = ProductPagination
     http_method_names = ['get', 'post', 'delete', 'put']
+    permission_classes = [IsAuthenticated]  # Default permission
+
+    def get_permissions(self):
+        """ Assign different permissions for different actions. """
+        if self.action in ['create', 'update', 'destroy']:  # Only Admins/Staff
+            self.permission_classes = [IsAuthenticated, IsAdminOrStaff]
+        else:  # Anyone can read
+            self.permission_classes = [permissions.AllowAny]
+        return super().get_permissions()
 
     def get_queryset(self):
         """

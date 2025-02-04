@@ -2,8 +2,8 @@
 from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes
 from .models import CustomUser
-from .serializers import UserSerializer,CustomTokenObtainPairSerializer,CustomTokenRefreshSerializer
-from .permissions import IsAdminUser, IsStaffUser, IsOwnerOrAdmin
+from .serializers import UserSerializer,CustomTokenObtainPairSerializer,CustomTokenRefreshSerializer,SignupSerializer, LoginSerializer, CreateUserSerializer
+from .permissions import IsAdminUser, IsStaffUser
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -24,59 +24,67 @@ class CustomRefreshToken(RefreshToken):
         token['user_id'] = user.user_id  # Add custom user_id claim
         return token
 
+class SignupView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = SignupSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+
+            # Generate tokens upon signup
+            refresh = RefreshToken.for_user(user)
+
+            return Response({
+                "message": "User created successfully",
+                "user": UserSerializer(user).data,
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# **Login View**
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        phone_number = request.data.get('phone_number')
-        password = request.data.get('password')
-        email = request.data.get('email')
-        username = request.data.get('username')
-        # Try to find the user by phone number
-        user = CustomUser.objects.filter(phone_number=phone_number).first()
+        serializer = LoginSerializer(data=request.data)
+        if serializer.is_valid():
+            return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
-        # If user does not exist, create a new user
-        if not user:
-            if not username:
-                username = phone_number
-            user = CustomUser.objects.create_user(
-                phone_number=phone_number,
-                password=password,
-                username=username,
-                email=email  # Or any other logic for generating username
-            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CreateUserView(APIView):
+    """
+    Allows Admins to create Admins, Staff, and Customers.
+    Allows Staff to create only Staff and Customers.
+    """
+    permission_classes = [IsAuthenticated, IsAdminUser | IsStaffUser]
+
+    def post(self, request):
+        serializer = CreateUserSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = serializer.save()
             return Response({
-                'message': 'User created successfully, and here is your token!',
-                'refresh': str(RefreshToken.for_user(user)),
-                'access': str(RefreshToken.for_user(user).access_token),
+                "message": "User created successfully",
+                "user": UserSerializer(user).data
             }, status=status.HTTP_201_CREATED)
 
-        # If user exists, authenticate them
-        user = authenticate(phone_number=phone_number, password=password, email = email)
-
-        if user:
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                'message': 'Login successful',
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            }, status=status.HTTP_200_OK)
-
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 # user view
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.all()
-    serializer_class = UserSerializer
+# class UserViewSet(viewsets.ModelViewSet):
+#     queryset = CustomUser.objects.all()
+#     serializer_class = UserSerializer
 
-    def get_permissions(self):
-        if self.action in ['list', 'create']:
-            return [IsAdminUser()]
-        return [IsOwnerOrAdmin()]
+#     def get_permissions(self):
+#         if self.action in ['list', 'create']:
+#             return [IsAdminUser()]
+#         return [IsOwnerOrAdmin()]
 
 class CustomTokenRefreshView(TokenRefreshView):
     serializer_class = CustomTokenRefreshSerializer
