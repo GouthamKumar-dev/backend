@@ -6,6 +6,8 @@ from rest_framework.permissions import AllowAny
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from users.views import CustomTokenObtainPairView, LogoutView, LoginView
+from django.conf import settings
+from django.conf.urls.static import static
 
 # drf-yasg Schema View Configuration
 schema_view = get_schema_view(
@@ -35,3 +37,6 @@ urlpatterns = [
     path('api/docs/redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     path('api/schema/', schema_view.without_ui(cache_timeout=0), name='schema-json')
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

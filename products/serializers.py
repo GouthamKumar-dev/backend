@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Category, Favorite
+from .models import Product, Category, Favorite, UploadedImage
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -55,3 +55,16 @@ class FavoriteSerializer(serializers.ModelSerializer):
         model = Favorite
         fields = ['favorite_id', 'user', 'product', 'product_id','is_active']
         read_only_fields = ['favorite_id', 'user']
+
+class UploadedImageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = UploadedImage
+        fields = ['id','image', 'product', 'category', 'uploaded_at']
+
+    def get_image_url(self, obj):
+        """ Generate a URL for the stored image """
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
