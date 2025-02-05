@@ -1,11 +1,13 @@
-# views.py
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated,AllowAny
-from .models import Product, Category, Favorite
-from .serializers import ProductSerializer, CategorySerializer, FavoriteSerializer
+from .models import Product, Category, Favorite, UploadedImage
+from django.shortcuts import get_object_or_404
+from .serializers import ProductSerializer, CategorySerializer, FavoriteSerializer, UploadedImageSerializer
 from rest_framework.pagination import PageNumberPagination
 from users.permissions import *
+import os
 
 class ProductPagination(PageNumberPagination):
     page_size = 10  # Number of items per page (change as needed)
@@ -165,3 +167,80 @@ class FavoriteViewSet(viewsets.ViewSet):
             return Response({"message": "Product removed from favorites"}, status=status.HTTP_204_NO_CONTENT)
         
         return Response({"error": "Favorite not found"}, status=status.HTTP_404_NOT_FOUND)
+
+class UploadedImageViewSet(viewsets.ModelViewSet):
+    queryset = UploadedImage.objects.all()
+    serializer_class = UploadedImageSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser | IsStaffUser]  # Only authenticated users can upload images
+    pagination_class = ProductPagination
+    parser_classes = [MultiPartParser, FormParser]  # Handle file uploads
+    http_method_names = ['get', 'post', 'delete', 'put']
+
+    def get_queryset(self):
+        """
+        Filters images based on 'type' query param.
+        Example: /api/products/images/?type=product or ?type=category
+        """
+        queryset = UploadedImage.objects.all()
+        image_type = self.request.query_params.get('type', None)  # Get query param
+
+        if image_type == 'product':
+            queryset = queryset.filter(product__isnull=False)  # Filter images related to products
+        elif image_type == 'category':
+            queryset = queryset.filter(category__isnull=False)  # Filter images related to categories
+
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        """ Handle image upload """
+        file = request.FILES.get('image')
+
+        if not file:
+            return Response({"error": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not file.name.endswith('.png'):
+            return Response({"error": "Only PNG images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        """ Updates an image and ensures only one foreign key (Product or Category) is set. """
+        instance = self.get_object()
+        product_id = request.data.get('product')
+        category_id = request.data.get('category')
+
+        # If product_id is provided, clear category
+        if product_id:
+            product = get_object_or_404(Product, pk=product_id)
+            instance.product = product
+            instance.category = None  # Set category to null
+
+        # If category_id is provided, clear product
+        elif category_id:
+            category = get_object_or_404(Category, pk=category_id)
+            instance.category = category
+            instance.product = None  # Set product to null
+
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        # Get the image instance based on the provided ID
+        try:
+            image = self.get_object()
+        except ObjectDoesNotExist:
+            return Response({"error": "Image not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Delete the image file from the filesystem
+        if image.image:
+            image_path = image.image.path  # Get the file path of the image
+            try:
+                os.remove(image_path)  # Delete the image file from the server
+            except FileNotFoundError:
+                pass  # If the file is not found, just continue
+
+        # Now, delete the image from the database
+        image.delete()
+
+        return Response({"message": "Image deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
