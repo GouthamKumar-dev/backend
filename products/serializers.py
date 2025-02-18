@@ -2,13 +2,22 @@ from rest_framework import serializers
 from .models import Product, Category, Favorite, UploadedImage
 
 class CategorySerializer(serializers.ModelSerializer):
+    images = serializers.SerializerMethodField()  # New field to include image URLs
+
     class Meta:
         model = Category
         fields = '__all__'
 
+    def get_images(self, obj):
+        """ Fetch all image URLs related to this category """
+        request = self.context.get("request")
+        images = UploadedImage.objects.filter(category=obj)
+        return [request.build_absolute_uri(img.image.url) for img in images if img.image]
+
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer()
-    favorite_count = serializers.SerializerMethodField()  # Use SerializerMethodField
+    favorite_count = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()  # New field to include image URLs
 
     class Meta:
         model = Product
@@ -22,11 +31,18 @@ class ProductSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_active",
-            "favorite_count",  # Include favorite count
+            "favorite_count",
+            "images",  # Add images field
         ]
 
     def get_favorite_count(self, obj):
         return obj.favorite_count()
+
+    def get_images(self, obj):
+        """ Fetch all image URLs related to this product """
+        request = self.context.get("request")
+        images = UploadedImage.objects.filter(product=obj)
+        return [request.build_absolute_uri(img.image.url) for img in images if img.image]
 
     def create(self, validated_data):
         category_data = validated_data.pop('category')

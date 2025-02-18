@@ -143,19 +143,27 @@ class FavoriteViewSet(viewsets.ViewSet):
         return paginator.get_paginated_response(serializer.data)
 
     def create(self, request):
-        """ Add a product to favorites """
+        """ Add a product to favorites (reactivate if soft deleted) """
         product_id = request.data.get("product_id")
         product = Product.objects.filter(product_id=product_id).first()
         
         if not product:
             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        favorite, created = Favorite.objects.get_or_create(user=request.user, product=product)
+        # Check if a soft-deleted favorite exists
+        favorite = Favorite.objects.filter(user=request.user, product=product).first()
         
-        if created:
-            return Response({"message": "Product added to favorites"}, status=status.HTTP_201_CREATED)
-        else:
+        if favorite:
+            if not favorite.is_active:
+                favorite.is_active = True  # Reactivate the favorite
+                favorite.save()
+                return Response({"message": "Product re-added to favorites"}, status=status.HTTP_200_OK)
             return Response({"message": "Product already in favorites"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create new favorite if none exists
+        Favorite.objects.create(user=request.user, product=product, is_active=True)
+        return Response({"message": "Product added to favorites"}, status=status.HTTP_201_CREATED)
+
 
     def destroy(self, request, pk=None):
         """ Soft delete: Set isActive to False """
@@ -204,22 +212,33 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        """ Updates an image and ensures only one foreign key (Product or Category) is set. """
+        """ Updates an image file and ensures only one foreign key (Product or Category) is set. """
         instance = self.get_object()
-        product_id = request.data.get('product')
-        category_id = request.data.get('category')
+        product_id = request.data.get("product")
+        category_id = request.data.get("category")
+        new_image = request.FILES.get("image")  # Get new image file
 
-        # If product_id is provided, clear category
+        # Handle foreign key updates
         if product_id:
             product = get_object_or_404(Product, pk=product_id)
             instance.product = product
-            instance.category = None  # Set category to null
+            instance.category = None  # Unlink category
 
-        # If category_id is provided, clear product
         elif category_id:
             category = get_object_or_404(Category, pk=category_id)
             instance.category = category
-            instance.product = None  # Set product to null
+            instance.product = None  # Unlink product
+
+        # Replace existing image if a new one is provided
+        if new_image:
+            # Delete old image from filesystem
+            if instance.image:
+                old_image_path = instance.image.path
+                if os.path.exists(old_image_path):
+                    os.remove(old_image_path)  # Delete old file
+
+            # Save new image
+            instance.image = new_image
 
         instance.save()
         serializer = self.get_serializer(instance)
