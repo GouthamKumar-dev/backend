@@ -136,8 +136,8 @@ class FavoriteViewSet(viewsets.ViewSet):
         paginator = ProductPagination()
         result_page = paginator.paginate_queryset(favorites, request)
         
-        # Serialize the paginated result
-        serializer = FavoriteSerializer(result_page, many=True)
+        # Serialize the paginated result, passing the request context
+        serializer = FavoriteSerializer(result_page, many=True, context={'request': request})
         
         # Return paginated response
         return paginator.get_paginated_response(serializer.data)
@@ -175,6 +175,15 @@ class FavoriteViewSet(viewsets.ViewSet):
             return Response({"message": "Product removed from favorites"}, status=status.HTTP_204_NO_CONTENT)
         
         return Response({"error": "Favorite not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def get_serializer_context(self):
+        """
+        Ensure that request is passed into the serializer context for URL building.
+        """
+        context = super().get_serializer_context()
+        context['request'] = self.request  # Add the current request to the context
+        return context
+
 
 class UploadedImageViewSet(viewsets.ModelViewSet):
     queryset = UploadedImage.objects.all()

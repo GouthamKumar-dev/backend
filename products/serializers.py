@@ -9,10 +9,14 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_images(self, obj):
-        """ Fetch all image URLs related to this category """
+        """ Fetch all image URLs related to this category or product """
         request = self.context.get("request")
-        images = UploadedImage.objects.filter(category=obj)
-        return [request.build_absolute_uri(img.image.url) for img in images if img.image]
+        # Check if the object is Category or Product and fetch associated images accordingly
+        images = UploadedImage.objects.filter(category=obj) if isinstance(obj, Category) else UploadedImage.objects.filter(product=obj)
+
+        if request:
+            return [request.build_absolute_uri(img.image.url) for img in images if img.image]
+        return [img.image.url for img in images if img.image]  # Use relative URL if request is None
 
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer()
@@ -41,8 +45,11 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_images(self, obj):
         """ Fetch all image URLs related to this product """
         request = self.context.get("request")
-        images = UploadedImage.objects.filter(product=obj)
-        return [request.build_absolute_uri(img.image.url) for img in images if img.image]
+        images = UploadedImage.objects.filter(product=obj)  # Get images related to this product
+
+        if request:
+            return [request.build_absolute_uri(img.image.url) for img in images if img.image]
+        return [img.image.url for img in images if img.image]  # Use relative URL if request is None
 
     def create(self, validated_data):
         category_data = validated_data.pop('category')
@@ -69,8 +76,9 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Favorite
-        fields = ['favorite_id', 'user', 'product', 'product_id','is_active']
+        fields = ['favorite_id', 'user', 'product', 'product_id', 'is_active']
         read_only_fields = ['favorite_id', 'user']
+
 
 class UploadedImageSerializer(serializers.ModelSerializer):
 
