@@ -33,15 +33,28 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """ Optionally filter products by 'is_active' query param. """
-        queryset = Product.objects.all()
+        queryset = Product.objects.all().order_by("name")
         is_active = self.request.query_params.get('is_active', None)
         
         if is_active is not None:
             # Convert 'is_active' to a boolean
             is_active = is_active.lower() in ['true']
-            queryset = queryset.filter(is_active=is_active)
+            queryset = queryset.filter(is_active=is_active).order_by("name")
         
         return queryset
+    
+    def list(self, request):
+        """ Paginate and return products sorted alphabetically. """
+        products = self.get_queryset()  # Get filtered and sorted queryset
+
+        # Paginate the queryset
+        paginator = ProductPagination()
+        result_page = paginator.paginate_queryset(products, request)
+
+        # Serialize the paginated result
+        serializer = ProductSerializer(result_page, many=True, context={'request': request})
+
+        return paginator.get_paginated_response(serializer.data)
 
     def destroy(self, request, pk=None):
         """ Soft delete: Set `is_active` to False. """
@@ -94,15 +107,28 @@ class CategoryViewSet(viewsets.ModelViewSet):
         Optionally filter categories by 'is_active' query param.
         If 'is_active' is provided, filter based on its value.
         """
-        queryset = Category.objects.all()
+        queryset = Category.objects.all().order_by("name")
         is_active = self.request.query_params.get('is_active', None)
         
         if is_active is not None:
             # Convert 'is_active' to a boolean
             is_active = is_active.lower() in ['true']
-            queryset = queryset.filter(is_active=is_active)
+            queryset = queryset.filter(is_active=is_active).order_by("name")
         
         return queryset
+
+    def list(self, request):
+        """ Paginate and return categories sorted alphabetically. """
+        categories = self.get_queryset()  # Get filtered and sorted queryset
+
+        # Paginate the queryset
+        paginator = ProductPagination()
+        result_page = paginator.paginate_queryset(categories, request)
+
+        # Serialize the paginated result
+        serializer = CategorySerializer(result_page, many=True, context={'request': request})
+
+        return paginator.get_paginated_response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         """ Soft delete: Set isActive to False """
@@ -120,13 +146,13 @@ class FavoriteViewSet(viewsets.ViewSet):
         Optionally filter favorites by 'is_active' query param.
         If 'is_active' is provided, filter based on its value.
         """
-        queryset = Favorite.objects.filter(user=self.request.user)
+        queryset = Favorite.objects.filter(user=self.request.user).order_by("product__name")
         is_active = self.request.query_params.get('is_active', None)
         
         if is_active is not None:
             # Convert 'is_active' to a boolean
             is_active = is_active.lower() in ['true']
-            queryset = queryset.filter(is_active=is_active)
+            queryset = queryset.filter(is_active=is_active).order_by("product__name")
         
         return queryset
 
