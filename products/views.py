@@ -8,6 +8,8 @@ from .serializers import ProductSerializer, CategorySerializer, FavoriteSerializ
 from rest_framework.pagination import PageNumberPagination
 from users.permissions import *
 import os
+from rest_framework.views import APIView
+from django.db.models import Q
 
 class ProductPagination(PageNumberPagination):
     page_size = 10  # Number of items per page (change as needed)
@@ -31,15 +33,28 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """ Optionally filter products by 'is_active' query param. """
-        queryset = Product.objects.all()
+        queryset = Product.objects.all().order_by("name")
         is_active = self.request.query_params.get('is_active', None)
         
         if is_active is not None:
             # Convert 'is_active' to a boolean
             is_active = is_active.lower() in ['true']
-            queryset = queryset.filter(is_active=is_active)
+            queryset = queryset.filter(is_active=is_active).order_by("name")
         
         return queryset
+    
+    def list(self, request):
+        """ Paginate and return products sorted alphabetically. """
+        products = self.get_queryset()  # Get filtered and sorted queryset
+
+        # Paginate the queryset
+        paginator = ProductPagination()
+        result_page = paginator.paginate_queryset(products, request)
+
+        # Serialize the paginated result
+        serializer = ProductSerializer(result_page, many=True, context={'request': request})
+
+        return paginator.get_paginated_response(serializer.data)
 
     def destroy(self, request, pk=None):
         """ Soft delete: Set `is_active` to False. """
@@ -92,15 +107,28 @@ class CategoryViewSet(viewsets.ModelViewSet):
         Optionally filter categories by 'is_active' query param.
         If 'is_active' is provided, filter based on its value.
         """
-        queryset = Category.objects.all()
+        queryset = Category.objects.all().order_by("name")
         is_active = self.request.query_params.get('is_active', None)
         
         if is_active is not None:
             # Convert 'is_active' to a boolean
             is_active = is_active.lower() in ['true']
-            queryset = queryset.filter(is_active=is_active)
+            queryset = queryset.filter(is_active=is_active).order_by("name")
         
         return queryset
+
+    def list(self, request):
+        """ Paginate and return categories sorted alphabetically. """
+        categories = self.get_queryset()  # Get filtered and sorted queryset
+
+        # Paginate the queryset
+        paginator = ProductPagination()
+        result_page = paginator.paginate_queryset(categories, request)
+
+        # Serialize the paginated result
+        serializer = CategorySerializer(result_page, many=True, context={'request': request})
+
+        return paginator.get_paginated_response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         """ Soft delete: Set isActive to False """
@@ -118,13 +146,13 @@ class FavoriteViewSet(viewsets.ViewSet):
         Optionally filter favorites by 'is_active' query param.
         If 'is_active' is provided, filter based on its value.
         """
-        queryset = Favorite.objects.filter(user=self.request.user)
+        queryset = Favorite.objects.filter(user=self.request.user).order_by("product__name")
         is_active = self.request.query_params.get('is_active', None)
         
         if is_active is not None:
             # Convert 'is_active' to a boolean
             is_active = is_active.lower() in ['true']
-            queryset = queryset.filter(is_active=is_active)
+            queryset = queryset.filter(is_active=is_active).order_by("product__name")
         
         return queryset
 
@@ -272,3 +300,46 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         image.delete()
 
         return Response({"message": "Image deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+class SearchViewSet(APIView):
+    pagination_class = ProductPagination  # Use existing pagination
+
+    def post(self, request, *args, **kwargs):
+        query = request.data.get("query", "").strip()  # Read query from JSON body
+
+        if not query:
+            return Response({"error": "Query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Search in products
+        product_results = Product.objects.filter(
+            Q(name__icontains=query) | Q(description__icontains=query),
+            is_active=True
+        ).order_by("name")
+
+        # Search in categories
+        category_results = Category.objects.filter(
+            Q(name__icontains=query) | Q(description__icontains=query),
+            is_active=True
+        ).order_by("name")
+
+        # Initialize pagination
+        paginator = self.pagination_class()
+
+        # Paginate products
+        paginated_products = paginator.paginate_queryset(product_results, request)
+        paginated_categories = paginator.paginate_queryset(category_results, request)
+
+        # Serialize paginated results
+        product_serializer = ProductSerializer(paginated_products, many=True, context={"request": request})
+        category_serializer = CategorySerializer(paginated_categories, many=True, context={"request": request})
+
+        return Response({
+            "products": {
+                "count": product_results.count(),
+                "results": product_serializer.data,
+            },
+            "categories": {
+                "count": category_results.count(),
+                "results": category_serializer.data,
+            }
+        }, status=status.HTTP_200_OK)
