@@ -8,6 +8,8 @@ from .serializers import ProductSerializer, CategorySerializer, FavoriteSerializ
 from rest_framework.pagination import PageNumberPagination
 from users.permissions import *
 import os
+from rest_framework.views import APIView
+from django.db.models import Q
 
 class ProductPagination(PageNumberPagination):
     page_size = 10  # Number of items per page (change as needed)
@@ -272,3 +274,46 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         image.delete()
 
         return Response({"message": "Image deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
+class SearchViewSet(APIView):
+    pagination_class = ProductPagination  # Use existing pagination
+
+    def post(self, request, *args, **kwargs):
+        query = request.data.get("query", "").strip()  # Read query from JSON body
+
+        if not query:
+            return Response({"error": "Query parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Search in products
+        product_results = Product.objects.filter(
+            Q(name__icontains=query) | Q(description__icontains=query),
+            is_active=True
+        ).order_by("name")
+
+        # Search in categories
+        category_results = Category.objects.filter(
+            Q(name__icontains=query) | Q(description__icontains=query),
+            is_active=True
+        ).order_by("name")
+
+        # Initialize pagination
+        paginator = self.pagination_class()
+
+        # Paginate products
+        paginated_products = paginator.paginate_queryset(product_results, request)
+        paginated_categories = paginator.paginate_queryset(category_results, request)
+
+        # Serialize paginated results
+        product_serializer = ProductSerializer(paginated_products, many=True, context={"request": request})
+        category_serializer = CategorySerializer(paginated_categories, many=True, context={"request": request})
+
+        return Response({
+            "products": {
+                "count": product_results.count(),
+                "results": product_serializer.data,
+            },
+            "categories": {
+                "count": category_results.count(),
+                "results": category_serializer.data,
+            }
+        }, status=status.HTTP_200_OK)
