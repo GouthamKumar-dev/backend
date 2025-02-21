@@ -23,12 +23,14 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class CartItemSerializer(serializers.ModelSerializer):
-    # Serialize the related product details
+    """ Serializer for individual Cart Items """
+    
+    id = serializers.IntegerField(read_only=True)  # Expose cart_item ID to the client
     product_details = ProductSerializer(source='product', read_only=True)  # Full product details
 
     class Meta:
         model = CartItem  # Ensure that this references the correct model
-        fields = ['product', 'product_details', 'quantity', 'is_active']  # Include quantity and is_active
+        fields = ['id', 'product_details', 'quantity', 'is_active']  # Include quantity and is_active
 
 
 

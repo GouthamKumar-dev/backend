@@ -54,59 +54,73 @@ class CartViewSet(viewsets.ModelViewSet):
         # Create Cart for the user if it doesn't exist
         cart, created = Cart.objects.get_or_create(user=user)
 
-        # Create CartItems
         for product_data in products:
-            product_id = product_data.get("product")  # Make sure you're using "product" as the field name
+            product_id = product_data.get("product")  
             quantity = product_data.get("quantity", 1)
 
             # Ensure the product exists
             try:
-                product = Product.objects.get(product_id=product_id)  # Fetch the product by ID
+                product = Product.objects.get(product_id=product_id)  
             except Product.DoesNotExist:
                 return Response({"error": "Product not found"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Check if product already exists in the cart and update the quantity if it does
-            cart_item = CartItem.objects.filter(cart=cart, product=product, is_active=True).first()
-            if cart_item:
-                # If the product is already in the cart, update the quantity
-                cart_item.quantity += quantity  # Increase the quantity
-                cart_item.save()
-            else:
-                # Create a new CartItem if it doesn't exist
-                CartItem.objects.create(
-                    cart=cart,
-                    product=product,
-                    quantity=quantity,
-                    is_active=True
-                )
+            # Validate stock before adding
+            if quantity > product.stock:
+                return Response({"error": f"Only {product.stock} available for {product.name}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Return updated cart data
+            # Check if item exists in cart
+            existing_cart_item = CartItem.objects.filter(cart=cart, product=product).first()
+
+            if existing_cart_item:
+                if existing_cart_item.is_active:
+                    return Response({
+                        "error": f"{product.name} is already in the cart",
+                        "cart_item_id": existing_cart_item.id  # Provide cart item ID
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    # Reactivate and update quantity
+                    existing_cart_item.quantity = quantity
+                    existing_cart_item.is_active = True
+                    existing_cart_item.save()
+            else:
+                # Create new cart item
+                CartItem.objects.create(cart=cart, product=product, quantity=quantity, is_active=True)
+
         return Response(CartSerializer(cart).data, status=status.HTTP_201_CREATED)
+
+
 
     def update(self, request, *args, **kwargs):
         """
-        Update the cart item details (e.g., change quantity).
+        Update cart item quantity.
+        If quantity is set to 0, soft delete the cart item.
         """
-        # Retrieve the CartItem using the pk provided in the URL
         cart_item = CartItem.objects.filter(id=kwargs['pk'], cart__user=request.user).first()
 
         if not cart_item:
             return Response({"error": "Cart item not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get the new quantity from the request data
         quantity = request.data.get("quantity", None)
 
         if quantity is None:
             return Response({"error": "Quantity is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if quantity <= 0:
-            return Response({"error": "Quantity must be greater than zero"}, status=status.HTTP_400_BAD_REQUEST)
+        if quantity == 0:
+            # Soft delete the item instead of updating
+            cart_item.is_active = False
+            cart_item.save()
+            return Response({"message": "Cart item marked as inactive"}, status=status.HTTP_200_OK)
 
-        # Update the quantity
+        # Check if requested quantity exceeds stock
+        if quantity > cart_item.product.stock:
+            return Response(
+                {"error": f"Only {cart_item.product.stock} items available for {cart_item.product.name}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         cart_item.quantity = quantity
         cart_item.save()
 
-        # Return the updated CartItem serialized data
         return Response(CartItemSerializer(cart_item).data, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
