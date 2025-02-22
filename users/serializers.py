@@ -20,38 +20,22 @@ class SignupSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        user = CustomUser.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            phone_number=validated_data['phone_number'],
-            password=validated_data['password']
-        )
+        user = CustomUser.objects.create_user(**validated_data)
         return user
 
 # **Login Serializer**
 class LoginSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField()
 
-    def validate(self, data):
-        phone_number = data.get("phone_number")
-        password = data.get("password")
+class OTPVerifySerializer(serializers.Serializer):
+    identifier = serializers.CharField()
+    otp = serializers.CharField()
 
-        if not phone_number or not password:
-            raise serializers.ValidationError("Phone number and password are required.")
-
-        user = authenticate(phone_number=phone_number, password=password)
-
-        if not user:
-            raise serializers.ValidationError("Invalid credentials.")
-
-        refresh = RefreshToken.for_user(user)
-
-        return {
-            "user": UserSerializer(user).data,
-            "refresh": str(refresh),
-            "access": str(refresh.access_token),
-        }
+class ResetPasswordSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    otp = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
 
 class CreateUserSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=UserRole.choices, required=True)  # Role is mandatory
