@@ -5,7 +5,6 @@ from django.urls import path, include
 from rest_framework.permissions import AllowAny
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from users.views import CustomTokenObtainPairView, LogoutView, LoginView
 from django.conf import settings
 from django.conf.urls.static import static
 from .views import landing_page,send_query_email,terms_and_conditions,privacy_policy,cancellation_and_refunds,shipping_policy
