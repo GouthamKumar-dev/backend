@@ -10,6 +10,7 @@ from users.permissions import *
 import os
 from rest_framework.views import APIView
 from django.db.models import Q
+from django.core.exceptions import ObjectDoesNotExist
 
 class ProductPagination(PageNumberPagination):
     page_size = 10  # Number of items per page (change as needed)
@@ -57,12 +58,16 @@ class ProductViewSet(viewsets.ModelViewSet):
         return paginator.get_paginated_response(serializer.data)
 
     def destroy(self, request, pk=None):
-        """ Soft delete: Set `is_active` to False. """
-        product = Product.objects.filter(product_id=pk).first()
+        """ Soft delete: Set `is_active` to False and update related favorites. """
+        product = Product.objects.filter(product_id=pk, is_active=True).first()
         
         if product:
+            # Mark product as inactive
             product.is_active = False
             product.save()
+
+            # Mark all related favorites as inactive
+            Favorite.objects.filter(product=product, is_active=True).update(is_active=False)
 
             # Check if the associated category has any active products
             category = product.category
@@ -70,7 +75,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 category.is_active = False
                 category.save()
 
-            return Response({"message": "Product marked as inactive"}, status=status.HTTP_204_NO_CONTENT)
+            return Response({"message": "Product and its favorites marked as inactive"}, status=status.HTTP_204_NO_CONTENT)
         
         return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -111,7 +116,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
         is_active = self.request.query_params.get('is_active', None)
         
         if is_active is not None:
-            # Convert 'is_active' to a boolean
             is_active = is_active.lower() in ['true']
             queryset = queryset.filter(is_active=is_active).order_by("name")
         
@@ -119,23 +123,75 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     def list(self, request):
         """ Paginate and return categories sorted alphabetically. """
-        categories = self.get_queryset()  # Get filtered and sorted queryset
-
-        # Paginate the queryset
+        categories = self.get_queryset()
         paginator = ProductPagination()
         result_page = paginator.paginate_queryset(categories, request)
-
-        # Serialize the paginated result
         serializer = CategorySerializer(result_page, many=True, context={'request': request})
-
         return paginator.get_paginated_response(serializer.data)
 
+    def create(self, request, *args, **kwargs):
+        """ 
+        - If a category with the same name & description is already active → Return an error.  
+        - If a category with the same name & description exists but is inactive → Reactivate it.  
+        - Otherwise, create a new category.  
+        """
+        data = request.data.copy()
+        name = data.get("name", "").strip()
+        description = data.get("description", "").strip()
+
+        # Check if an active category already exists
+        existing_active_category = Category.objects.filter(name=name, description=description, is_active=True).first()
+        if existing_active_category:
+            return Response({"error": "Category with this name and description already exists and is active."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if an inactive category exists with the same name & description
+        existing_inactive_category = Category.objects.filter(name=name, description=description, is_active=False).first()
+        if existing_inactive_category:
+            existing_inactive_category.is_active = True
+            existing_inactive_category.save()
+            return Response(CategorySerializer(existing_inactive_category, context={"request": request}).data, status=status.HTTP_200_OK)
+
+        # If no category exists, create a new one
+        return super().create(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
-        """ Soft delete: Set isActive to False """
+        """ Soft delete: Set is_active to False for the category and all its products """
         category = self.get_object()
-        category.is_active = False  # Set the 'is_active' field to False
+        category.is_active = False
         category.save()
-        return Response({"message": "Category marked as inactive"}, status=status.HTTP_204_NO_CONTENT)
+
+        # Also mark all related products as inactive
+        Product.objects.filter(category=category).update(is_active=False)
+
+        return Response({"message": "Category and associated products marked as inactive"}, status=status.HTTP_204_NO_CONTENT)
+
+    def update(self, request, *args, **kwargs):
+        """ 
+        Update category and ensure products follow the category's state.
+        Prevents duplicate name-description combinations.
+        """
+        category = self.get_object()
+        data = request.data.copy()  # Make a copy of request data
+
+        new_name = data.get("name", category.name).strip()
+        new_description = data.get("description", category.description).strip()
+        is_active = data.get("is_active", category.is_active)  # Get the new state
+
+        # Check if a different category with the same name & description already exists
+        if Category.objects.exclude(category_id=category.category_id).filter(name=new_name, description=new_description).exists():
+            return Response({"error": "Category with this name and description already exists."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update category fields
+        category.name = new_name
+        category.description = new_description
+        category.is_active = is_active
+        category.save()
+
+        # If category is deactivated, deactivate its products
+        if not category.is_active:
+            Product.objects.filter(category=category).update(is_active=False)
+
+        return Response(CategorySerializer(category, context={'request': request}).data, status=status.HTTP_200_OK)
 
 class FavoriteViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -173,7 +229,7 @@ class FavoriteViewSet(viewsets.ViewSet):
     def create(self, request):
         """ Add a product to favorites (reactivate if soft deleted) """
         product_id = request.data.get("product_id")
-        product = Product.objects.filter(product_id=product_id).first()
+        product = Product.objects.filter(product_id=product_id, is_active = True).first()
         
         if not product:
             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -216,7 +272,7 @@ class FavoriteViewSet(viewsets.ViewSet):
 class UploadedImageViewSet(viewsets.ModelViewSet):
     queryset = UploadedImage.objects.all()
     serializer_class = UploadedImageSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser | IsStaffUser]  # Only authenticated users can upload images
+    permission_classes = [IsAuthenticated, IsAdminUser | IsStaffUser]  # Only admins/staff can upload images
     pagination_class = ProductPagination
     parser_classes = [MultiPartParser, FormParser]  # Handle file uploads
     http_method_names = ['get', 'post', 'delete', 'put']
@@ -237,16 +293,47 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         return queryset
 
     def create(self, request, *args, **kwargs):
-        """ Handle image upload """
+        """ Handle image upload with product/category validation """
         file = request.FILES.get('image')
+        product_id = request.data.get("product")
+        category_id = request.data.get("category")
 
+        # Ensure an image is provided
         if not file:
             return Response({"error": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not file.name.endswith('.png'):
+        # Validate file type (only PNG)
+        if not file.name.lower().endswith('.png'):
             return Response({"error": "Only PNG images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
 
-        return super().create(request, *args, **kwargs)
+        # Ensure only one foreign key is set
+        if product_id and category_id:
+            return Response({"error": "An image cannot be linked to both a product and a category."}, status=status.HTTP_400_BAD_REQUEST)
+
+        product, category = None, None
+
+        # Validate product existence and active status
+        if product_id:
+            try:
+                product = Product.objects.get(pk=product_id, is_active=True)
+            except ObjectDoesNotExist:
+                return Response({"error": "Product does not exist or is inactive."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate category existence and active status
+        elif category_id:
+            try:
+                category = Category.objects.get(pk=category_id, is_active=True)
+            except ObjectDoesNotExist:
+                return Response({"error": "Category does not exist or is inactive."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # If neither a valid product nor category is found, reject the request
+        if not product and not category:
+            return Response({"error": "Either a valid product or category must be provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Save the image with the valid product/category
+        uploaded_image = UploadedImage.objects.create(image=file, product=product, category=category)
+        serializer = self.get_serializer(uploaded_image)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         """ Updates an image file and ensures only one foreign key (Product or Category) is set. """
@@ -257,12 +344,18 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
 
         # Handle foreign key updates
         if product_id:
-            product = get_object_or_404(Product, pk=product_id)
+            try:
+                product = Product.objects.get(pk=product_id, is_active=True)
+            except ObjectDoesNotExist:
+                return Response({"error": "Product does not exist or is inactive."}, status=status.HTTP_400_BAD_REQUEST)
             instance.product = product
             instance.category = None  # Unlink category
 
         elif category_id:
-            category = get_object_or_404(Category, pk=category_id)
+            try:
+                category = Category.objects.get(pk=category_id, is_active=True)
+            except ObjectDoesNotExist:
+                return Response({"error": "Category does not exist or is inactive."}, status=status.HTTP_400_BAD_REQUEST)
             instance.category = category
             instance.product = None  # Unlink product
 
@@ -282,12 +375,12 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
-        # Get the image instance based on the provided ID
+        """ Delete an image and remove it from the filesystem """
         try:
             image = self.get_object()
         except ObjectDoesNotExist:
             return Response({"error": "Image not found"}, status=status.HTTP_404_NOT_FOUND)
-        
+
         # Delete the image file from the filesystem
         if image.image:
             image_path = image.image.path  # Get the file path of the image
@@ -300,6 +393,7 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         image.delete()
 
         return Response({"message": "Image deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+
 
 class SearchViewSet(APIView):
     pagination_class = ProductPagination  # Use existing pagination
