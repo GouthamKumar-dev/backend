@@ -6,6 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Order, OrderDetail, Cart, CartItem
 from products.models import Product
 from .serializers import CartItemSerializer, OrderSerializer, CartSerializer, OrderDetailSerializer
+from rest_framework.decorators import action
+from users.permissions import IsAdminOrStaff
 
 from rest_framework.pagination import PageNumberPagination
 
@@ -72,7 +74,7 @@ class CartViewSet(viewsets.ModelViewSet):
 
             # Ensure the product exists
             try:
-                product = Product.objects.get(product_id=product_id)  
+                product = Product.objects.get(product_id=product_id, is_active = True)  
             except Product.DoesNotExist:
                 return Response({"error": "Product not found"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -160,6 +162,15 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user, is_active=True).order_by('-created_at')
+
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsAdminOrStaff])
+    def all_orders(self, request):
+        """ 
+        Admin/Staff can view all orders 
+        """
+        orders = Order.objects.filter(is_active=True).order_by("-created_at")
+        serializer = OrderSerializer(orders, many=True, context={"request": request})
+        return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
         order = self.get_object()
