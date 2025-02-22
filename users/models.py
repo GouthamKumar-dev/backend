@@ -2,6 +2,7 @@
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
 from django.utils import timezone
+import datetime
 
 class UserRole(models.TextChoices):
     CUSTOMER = 'customer', 'Customer'
@@ -72,5 +73,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     @property
     def is_superuser(self):
         return self.role == UserRole.ADMIN
+
+class OTP(models.Model):
+    identifier = models.CharField(max_length=255, unique=True)  # Phone or email
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        """Check if OTP is older than 5 minutes"""
+        return timezone.now() > self.created_at + datetime.timedelta(minutes=5)
 
 

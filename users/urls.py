@@ -1,14 +1,18 @@
 from django.urls import path
-from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginView, CreateUserView
+from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView
 from rest_framework_simplejwt.views import TokenVerifyView
 
 urlpatterns = [
     # my profile only
     path('me/', user_me, name='user-me'),
     # Add token creation, signup, login, and logout endpoints
-    # Token related
+    # Login related
     path('signup/', SignupView.as_view(), name='signup'),
-    path('login/', LoginView.as_view(), name='login'),
+    path('login/', LoginRequestOTPView.as_view(), name='login_request_otp'),
+    path('verify-otp/', VerifyOTPView.as_view(), name='verify_otp'),
+    path('forgot-password/', ForgotPasswordRequestOTPView.as_view(), name='forgot_password_request_otp'),
+    path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
+    # User and token related
     path('create-user/', CreateUserView.as_view(), name='create-user'),
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),  # Get access and refresh tokens
     path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),  # Refresh access token
