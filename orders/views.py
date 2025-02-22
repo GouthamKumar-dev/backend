@@ -29,10 +29,22 @@ class CartViewSet(viewsets.ModelViewSet):
         if not cart:
             return Cart.objects.none()
 
-        # Ensure that only active cart items are included
-        cart.cartitem_set.filter(is_active=True)
+        # Ensure only active cart items are included
+        cart_items = cart.cartitem_set.filter(is_active=True)
+
+        # Attach request context to each cart item
+        for item in cart_items:
+            item.request = self.request
 
         return Cart.objects.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        """
+        List the user's cart with active items and product images.
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
 
     def retrieve(self, request, *args, **kwargs):
         """
@@ -44,7 +56,7 @@ class CartViewSet(viewsets.ModelViewSet):
             return Response({"error": "Cart item not found"}, status=status.HTTP_404_NOT_FOUND)
         
         # Return the CartItem data serialized using CartItemSerializer
-        return Response(CartItemSerializer(cart_item).data)
+        return Response(CartItemSerializer(cart_item,context={'request': request}).data)
 
     def create(self, request, *args, **kwargs):
         """ Create cart and add items """
@@ -86,7 +98,7 @@ class CartViewSet(viewsets.ModelViewSet):
                 # Create new cart item
                 CartItem.objects.create(cart=cart, product=product, quantity=quantity, is_active=True)
 
-        return Response(CartSerializer(cart).data, status=status.HTTP_201_CREATED)
+        return Response(CartSerializer(cart,context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
 
@@ -121,7 +133,7 @@ class CartViewSet(viewsets.ModelViewSet):
         cart_item.quantity = quantity
         cart_item.save()
 
-        return Response(CartItemSerializer(cart_item).data, status=status.HTTP_200_OK)
+        return Response(CartItemSerializer(cart_item,context={'request': request}).data, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         """
@@ -159,7 +171,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             "status": order.status,
             "shipping_address": order.shipping_address,
             # "products": OrderSerializer(order).data,  # Order-level details
-            "items": OrderDetailSerializer(order_details, many=True).data  # All product details without pagination
+            "items": OrderDetailSerializer(order_details,context={'request': request}, many=True).data  # All product details without pagination
         })
 
     @transaction.atomic
@@ -213,15 +225,22 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Empty the cart after placing the order
         cart_items.update(is_active=False)  # This will mark all cart items as inactive
 
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        return Response(OrderSerializer(order,context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, pk=None):
+        """Allow only staff/admin to update order status."""
+        self.permission_classes = [IsAdminOrStaff]  # Only admins/staff can update
+        self.check_permissions(request)  # Enforce the permission
 
         order = self.get_object()
         new_status = request.data.get("status")
 
         if not order.is_active:
             return Response({"error": "Cannot update an inactive order"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ❌ Prevent updates if order is already delivered
+        if order.status == "Delivered":
+            return Response({"error": "This order has already been delivered and cannot be updated"}, status=status.HTTP_400_BAD_REQUEST)
 
         if new_status == "Cancelled":
             order.is_active = False  # Soft delete order
@@ -238,5 +257,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "Invalid status update"}, status=status.HTTP_400_BAD_REQUEST)
 
         order.save()
-        return Response(OrderSerializer(order).data)
+        return Response(OrderSerializer(order,context={'request': request}).data)
+
 

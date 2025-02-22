@@ -6,11 +6,15 @@ from products.serializers import ProductSerializer
 # serializers.py
 
 class OrderDetailSerializer(serializers.ModelSerializer):
-    product_details = ProductSerializer(source='product', read_only=True)  # Full product details
+    product_details = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderDetail
-        fields = ['order_detail_id', 'order', 'product', 'product_details', 'quantity', 'price_at_purchase','is_active']
+        fields = ['order_detail_id', 'order', 'product', 'product_details', 'quantity', 'price_at_purchase', 'is_active']
+
+    def get_product_details(self, obj):
+        request = self.context.get('request')
+        return ProductSerializer(obj.product, context={'request': request}).data
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -23,29 +27,30 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class CartItemSerializer(serializers.ModelSerializer):
-    """ Serializer for individual Cart Items """
-    
-    id = serializers.IntegerField(read_only=True)  # Expose cart_item ID to the client
-    product_details = ProductSerializer(source='product', read_only=True)  # Full product details
+    id = serializers.IntegerField(read_only=True)
+    product_details = serializers.SerializerMethodField()  # Pass request to ProductSerializer
 
     class Meta:
-        model = CartItem  # Ensure that this references the correct model
-        fields = ['id', 'product_details', 'quantity', 'is_active']  # Include quantity and is_active
+        model = CartItem
+        fields = ['id', 'product_details', 'quantity', 'is_active']
+
+    def get_product_details(self, obj):
+        request = self.context.get('request')  # Get request from parent serializer
+        return ProductSerializer(obj.product, context={'request': request}).data
+
 
 
 
 # Main Cart Serializer
 class CartSerializer(serializers.ModelSerializer):
-    # Represent the user as a string (username)
     user = serializers.StringRelatedField()
-
-    # Use the CartItemSerializer to fetch items in the cart
-    products = serializers.SerializerMethodField()  # Related CartItems (cartitem_set is default)
+    products = serializers.SerializerMethodField()
 
     class Meta:
-        model = Cart  # Ensure that this references the correct model
+        model = Cart
         fields = ['cart_id', 'user', 'products']
 
     def get_products(self, obj):
         active_cart_items = obj.cartitem_set.filter(is_active=True)
-        return CartItemSerializer(active_cart_items, many=True).data  # Serialize only active items
+        request = self.context.get('request')  # Retrieve request from context
+        return CartItemSerializer(active_cart_items, many=True, context={'request': request}).data
