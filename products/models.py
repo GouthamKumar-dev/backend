@@ -1,15 +1,30 @@
 from django.db import models
+from django.db.models import Q, UniqueConstraint
 from users.models import CustomUser
 import os
+import uuid
 
 class Category(models.Model):
     class Meta:
         db_table = 'category'
+        constraints = [
+            UniqueConstraint(
+                fields=["category_code"],
+                condition=Q(is_active=True),
+                name="unique_active_category_code"
+            )
+        ]
 
     category_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     description = models.TextField()
+    category_code = models.CharField(max_length=100, default=None, blank=True, null=True)  # No unique=True here
     is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        if not self.category_code:
+            self.category_code = f"CAT-{uuid.uuid4().hex[:8]}"  # Generate default category_code
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -17,6 +32,13 @@ class Category(models.Model):
 class Product(models.Model):
     class Meta:
         db_table = 'products'
+        constraints = [
+            UniqueConstraint(
+                fields=["product_code"],
+                condition=Q(is_active=True),
+                name="unique_active_product_code"
+            )
+        ]
 
     product_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
@@ -24,9 +46,15 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.PositiveIntegerField()
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
+    product_code = models.CharField(max_length=100, default=None, blank=True, null=True)  # No unique=True here
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        if not self.product_code:
+            self.product_code = f"PROD-{uuid.uuid4().hex[:8]}"  # Generate default product_code
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

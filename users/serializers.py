@@ -10,7 +10,7 @@ from django.contrib.auth import authenticate
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['user_id', 'username', 'email', 'phone_number', 'role']
+        fields = ['user_id', 'username', 'email', 'phone_number','default_shipping_address', 'role']
 
 # **Signup Serializer**
 class SignupSerializer(serializers.ModelSerializer):

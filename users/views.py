@@ -1,11 +1,12 @@
 # views.py
 from rest_framework import viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from .models import CustomUser
 from .serializers import UserSerializer,CustomTokenObtainPairSerializer,CustomTokenRefreshSerializer,SignupSerializer, LoginSerializer, CreateUserSerializer
-from .permissions import IsAdminUser, IsStaffUser
+from .permissions import IsAdminUser, IsStaffUser, IsAdminOrStaff
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework.pagination import PageNumberPagination
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -23,6 +24,11 @@ class CustomRefreshToken(RefreshToken):
         token = super().for_user(user)
         token['user_id'] = user.user_id  # Add custom user_id claim
         return token
+    
+class UserPagination(PageNumberPagination):
+    page_size = 10  # Number of items per page (change as needed)
+    page_size_query_param = 'page_size'  # Allows clients to set page size dynamically
+    max_page_size = 100  # Prevents very large queries
 
 class SignupView(APIView):
     permission_classes = [AllowAny]
@@ -125,4 +131,40 @@ class LogoutView(APIView):
             # Log the error for debugging
             logger.error(f"Error during logout: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+# List all orders (paginated) for admins
+class AdminUserListView(APIView):
+    """
+    Admin view to list all users.
+    """
+    permission_classes = [IsAuthenticated, IsAdminOrStaff]  # Ensure only admins/staff can access
+    pagination_class = UserPagination
 
+    def get(self, request):
+        """
+        List all users.
+        """
+        users = CustomUser.objects.all().order_by("username")
+        paginator = UserPagination()
+        paginated_users = paginator.paginate_queryset(users, request)
+        serializer = UserSerializer(paginated_users, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
+
+class UpdateShippingAddressView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        """
+        Allows users to update their default shipping address.
+        """
+        user = request.user
+        new_address = request.data.get("default_shipping_address")
+
+        if not new_address:
+            return Response({"error": "Shipping address cannot be empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.default_shipping_address = new_address
+        user.save()
+
+        return Response({"message": "Shipping address updated successfully", "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
