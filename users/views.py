@@ -101,7 +101,8 @@ def user_me(request):
     return Response({
         'phone_number': request.user.phone_number,
         'username': request.user.username,
-        'email': request.user.email
+        'email': request.user.email,
+        'default_shipping_address' : request.user.default_shipping_address
     })
 
 #logout view
