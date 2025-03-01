@@ -93,7 +93,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
+    queryset = Category.objects.all().order_by("name")
     serializer_class = CategorySerializer
     pagination_class = ProductPagination
     http_method_names = ['get', 'post', 'delete', 'put']
@@ -131,39 +131,33 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """ 
-        - If a category with the same name & description is already active → Return an error.  
-        - If a category with the same name & description exists but is inactive → Reactivate it.  
-        - Otherwise, create a new category.  
+        Handles category creation:
+        - If a category with the same `category_code`, `name`, and `description` is active → Return an error.
+        - If a category with the same values exists but is inactive → Reactivate it.
+        - Otherwise, create a new category.
         """
         data = request.data.copy()
+        category_code = data.get("category_code", "").strip()
         name = data.get("name", "").strip()
         description = data.get("description", "").strip()
 
-        # Check if an active category already exists
-        existing_active_category = Category.objects.filter(name=name, description=description, is_active=True).first()
-        if existing_active_category:
-            return Response({"error": "Category with this name and description already exists and is active."}, status=status.HTTP_400_BAD_REQUEST)
+        if not category_code:
+            return Response({"error": "category_code is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if an inactive category exists with the same name & description
-        existing_inactive_category = Category.objects.filter(name=name, description=description, is_active=False).first()
-        if existing_inactive_category:
-            existing_inactive_category.is_active = True
-            existing_inactive_category.save()
-            return Response(CategorySerializer(existing_inactive_category, context={"request": request}).data, status=status.HTTP_200_OK)
+        # Check if a category with the same `category_code`, `name`, and `description` exists
+        existing_category = Category.objects.filter(category_code=category_code, name=name, description=description).first()
 
-        # If no category exists, create a new one
+        if existing_category:
+            if existing_category.is_active:
+                return Response({"error": "Category with this category_code, name, and description already exists and is active."}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # Reactivate and update if necessary
+                existing_category.is_active = True
+                existing_category.save()
+                return Response(CategorySerializer(existing_category, context={"request": request}).data, status=status.HTTP_200_OK)
+
+        # If no exact match exists, create a new category
         return super().create(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        """ Soft delete: Set is_active to False for the category and all its products """
-        category = self.get_object()
-        category.is_active = False
-        category.save()
-
-        # Also mark all related products as inactive
-        Product.objects.filter(category=category).update(is_active=False)
-
-        return Response({"message": "Category and associated products marked as inactive"}, status=status.HTTP_204_NO_CONTENT)
 
     def update(self, request, *args, **kwargs):
         """ 
@@ -173,15 +167,19 @@ class CategoryViewSet(viewsets.ModelViewSet):
         category = self.get_object()
         data = request.data.copy()  # Make a copy of request data
 
+        new_category_code = data.get("category_code", category.category_code).strip()
         new_name = data.get("name", category.name).strip()
         new_description = data.get("description", category.description).strip()
         is_active = data.get("is_active", category.is_active)  # Get the new state
 
-        # Check if a different category with the same name & description already exists
-        if Category.objects.exclude(category_id=category.category_id).filter(name=new_name, description=new_description).exists():
-            return Response({"error": "Category with this name and description already exists."}, status=status.HTTP_400_BAD_REQUEST)
+        # Prevent duplicate combination of `category_code`, `name`, and `description`
+        if Category.objects.exclude(category_id=category.category_id).filter(
+            category_code=new_category_code, name=new_name, description=new_description, is_active=True
+        ).exists():
+            return Response({"error": "Category with this category_code, name, and description already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update category fields
+        # Update category
+        category.category_code = new_category_code
         category.name = new_name
         category.description = new_description
         category.is_active = is_active
@@ -192,6 +190,20 @@ class CategoryViewSet(viewsets.ModelViewSet):
             Product.objects.filter(category=category).update(is_active=False)
 
         return Response(CategorySerializer(category, context={'request': request}).data, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        """ 
+        Soft delete: Set `is_active = False` for the category and its associated products.
+        """
+        category = self.get_object()
+        category.is_active = False
+        category.save()
+
+        # Also deactivate all related products
+        Product.objects.filter(category=category).update(is_active=False)
+
+        return Response({"message": "Category and associated products marked as inactive"}, status=status.HTTP_204_NO_CONTENT)
+
 
 class FavoriteViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]

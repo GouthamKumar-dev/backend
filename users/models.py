@@ -46,6 +46,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=150)  # Not unique
     email = models.EmailField(unique=True)  # Part of unique combo with phone_number
     phone_number = models.CharField(max_length=15, unique=True)  # Must be unique
+    default_shipping_address = models.TextField(blank=True, null=True)  # New field
     role = models.CharField(max_length=10, choices=UserRole.choices, default=UserRole.CUSTOMER)
     created_at = models.DateTimeField(default=timezone.now)
     created_by = models.CharField(max_length=100, blank=True, null=True)

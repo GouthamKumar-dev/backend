@@ -1,13 +1,16 @@
 # views.py
 from django.db import transaction
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import Order, OrderDetail, Cart, CartItem
 from products.models import Product
 from .serializers import CartItemSerializer, OrderSerializer, CartSerializer, OrderDetailSerializer
 from rest_framework.decorators import action
-from users.permissions import IsAdminOrStaff
+from users.permissions import IsAdminOrStaff,IsAdminUser
+from users.serializers import UserSerializer
+from django.shortcuts import get_object_or_404
+from users.models import CustomUser
 
 from rest_framework.pagination import PageNumberPagination
 
@@ -163,15 +166,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user, is_active=True).order_by('-created_at')
 
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsAdminOrStaff])
-    def all_orders(self, request):
-        """ 
-        Admin/Staff can view all orders 
-        """
-        orders = Order.objects.filter(is_active=True).order_by("-created_at")
-        serializer = OrderSerializer(orders, many=True, context={"request": request})
-        return Response(serializer.data)
-
     def retrieve(self, request, *args, **kwargs):
         order = self.get_object()
         order_details = order.order_details.filter(is_active=True)
@@ -269,5 +263,36 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         order.save()
         return Response(OrderSerializer(order,context={'request': request}).data)
+
+@action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsAdminOrStaff])
+def all_orders(self, request):
+    """ 
+    Admin/Staff can view all orders 
+    """
+    orders = Order.objects.filter(is_active=True).order_by("-created_at")
+    serializer = OrderSerializer(orders, many=True, context={"request": request})
+    return Response(serializer.data)
+    
+class UserOrdersViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrStaff]
+    pagination_class = CartItemPagination  # Apply pagination
+
+    @action(detail=True, methods=['get'], url_path='orders')
+    def user_orders(self, request, pk=None):
+        """
+        Fetch all orders for a specific user.
+        """
+        user = get_object_or_404(CustomUser, pk=pk)
+        orders = Order.objects.filter(user=user).order_by('-created_at')
+
+        page = self.paginate_queryset(orders)
+        if page is not None:
+            serializer = OrderSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
