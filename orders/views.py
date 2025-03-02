@@ -2,7 +2,7 @@
 from django.db import transaction
 from rest_framework import viewsets, status, generics
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import Order, OrderDetail, Cart, CartItem
 from products.models import Product
 from .serializers import CartItemSerializer, OrderSerializer, CartSerializer, OrderDetailSerializer
@@ -11,8 +11,21 @@ from users.permissions import IsAdminOrStaff,IsAdminUser
 from users.serializers import UserSerializer
 from django.shortcuts import get_object_or_404
 from users.models import CustomUser
+from django.http import JsonResponse
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+import hmac
+import hashlib
+import json
+from ecommerce.logger import logger
+from django.db.models import F
+from django.core.mail import send_mail
 
 from rest_framework.pagination import PageNumberPagination
+
+from razorpay.errors import BadRequestError, ServerError
+import razorpay
+from django.core.mail import send_mail
 
 class CartItemPagination(PageNumberPagination):
     page_size = 5  # Number of cart items per page
@@ -92,10 +105,11 @@ class CartViewSet(viewsets.ModelViewSet):
                 if existing_cart_item.is_active:
                     return Response({
                         "error": f"{product.name} is already in the cart",
-                        "cart_item_id": existing_cart_item.id  # Provide cart item ID
+                        "cart_item_id": existing_cart_item.id
                     }, status=status.HTTP_400_BAD_REQUEST)
+                elif quantity > product.stock:
+                    return Response({"error": f"Only {product.stock} available for {product.name}"}, status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    # Reactivate and update quantity
                     existing_cart_item.quantity = quantity
                     existing_cart_item.is_active = True
                     existing_cart_item.save()
@@ -157,14 +171,101 @@ class CartViewSet(viewsets.ModelViewSet):
         # Return success response
         return Response({"message": "Cart item marked as inactive"}, status=status.HTTP_204_NO_CONTENT)
 
-
 class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
-    http_method_names = ['get', 'post', 'put']
+    http_method_names = ["get", "post", "put"]
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user, is_active=True).order_by('-created_at')
+        return Order.objects.filter(user=self.request.user, is_active=True).order_by("-created_at")
+
+    @transaction.atomic
+    def create(self, request):
+        """Create an order and generate a Razorpay Payment Link."""
+        user = request.user
+        cart = Cart.objects.filter(user=user).first()
+        cart_items = CartItem.objects.filter(cart=cart, is_active=True)
+
+        if not cart or not cart_items.exists():
+            return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+        shipping_address = request.data.get("shipping_address")
+        if not shipping_address:
+            return Response({"error": "Shipping address is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        total_price = sum(item.product.price * item.quantity for item in cart_items)
+
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+        try:
+            # Create order in the database but keep it pending
+            order = Order.objects.create(
+                user=user,
+                total_price=total_price,
+                shipping_address=shipping_address,
+                status="Pending"
+            )
+
+            # Move Cart Items to OrderDetail (without modifying stock)
+            for item in cart_items:
+                OrderDetail.objects.create(
+                    order=order,
+                    product=item.product,
+                    quantity=item.quantity,
+                    price_at_purchase=item.product.price
+                )
+
+            # Create a Razorpay Payment Link
+            payment_link = client.payment_link.create({
+                "amount": int(total_price * 100),  # Convert to paise
+                "currency": "INR",
+                "description": f"Order #{order.order_id} Payment",
+                "customer": {
+                    "name": user.username,
+                    "email": user.email,
+                    "contact": user.phone_number,  # Ensure phone number is available
+                },
+                "callback_url": "https://e1ef-49-207-229-16.ngrok-free.app/api/orders/payment-webhook/",
+                "callback_method": "get"
+            })
+
+            # Save Razorpay payment link ID
+            order.razorpay_payment_link_id = payment_link["id"]
+            order.save()
+
+            return Response({
+                "order_id": order.order_id,
+                "payment_link": payment_link["short_url"]
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=["POST"])
+    def verify(self, request):
+        """Verify payment and update order status"""
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+        razorpay_payment_id = request.data.get("razorpay_payment_id")
+        razorpay_payment_link_id = request.data.get("razorpay_payment_link_id")
+
+        order = Order.objects.filter(razorpay_payment_link_id=razorpay_payment_link_id, is_active=True).first()
+        if not order:
+            return Response({"error": "Order not found or inactive"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            payment = client.payment.fetch(razorpay_payment_id)
+
+            if payment["status"] == "captured":
+                order.status = "Processing"
+                order.razorpay_payment_id = razorpay_payment_id
+                order.save()
+                return Response({"message": "Payment verified successfully"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Payment not completed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        except razorpay.errors.BadRequestError:
+            return Response({"error": "Invalid payment details"}, status=status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
         order = self.get_object()
@@ -175,94 +276,99 @@ class OrderViewSet(viewsets.ModelViewSet):
             "total_price": order.total_price,
             "status": order.status,
             "shipping_address": order.shipping_address,
-            # "products": OrderSerializer(order).data,  # Order-level details
-            "items": OrderDetailSerializer(order_details,context={'request': request}, many=True).data  # All product details without pagination
+            "items": OrderDetailSerializer(order_details, context={"request": request}, many=True).data
         })
 
-    @transaction.atomic
-    def create(self, request):
-        """Create an order and put stock on hold by reducing stock temporarily."""
-        user = request.user
-        cart = Cart.objects.filter(user=user).first()
-
-        # Check if cart exists and has active items
-        cart_items = CartItem.objects.filter(cart=cart, is_active=True)
-        if not cart or not cart_items.exists():
-            return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
-
-        shipping_address = request.data.get("shipping_address")
-        if not shipping_address:
-            return Response({"error": "Shipping address is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Calculate total price
-        total_price = sum(item.product.price * item.quantity for item in cart_items)
-
-        # Create Order
-        order = Order.objects.create(
-            user=user,
-            total_price=total_price,
-            shipping_address=shipping_address,
-            status="Pending"
-        )
-
-        # Move Cart Items to OrderDetail & Reduce Stock
-        for item in cart_items:
-            product = item.product
-            
-            # Check if enough stock is available
-            if product.stock < item.quantity:
-                return Response({"error": f"Not enough stock for {product.name}"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Reduce stock temporarily (on hold)
-            product.stock -= item.quantity
-            product.save()
-
-            OrderDetail.objects.create(
-                order=order,
-                product=product,
-                quantity=item.quantity,
-                price_at_purchase=product.price
-            )
-            
-            item.is_active = False  # Soft delete cart item
-            item.save()
-
-        # Empty the cart after placing the order
-        cart_items.update(is_active=False)  # This will mark all cart items as inactive
-
-        return Response(OrderSerializer(order,context={'request': request}).data, status=status.HTTP_201_CREATED)
-
     def update(self, request, pk=None):
-        """Allow only staff/admin to update order status."""
-        self.permission_classes = [IsAdminOrStaff]  # Only admins/staff can update
-        self.check_permissions(request)  # Enforce the permission
-
+        """Update order status, including handling order cancellations."""
         order = self.get_object()
         new_status = request.data.get("status")
 
         if not order.is_active:
             return Response({"error": "Cannot update an inactive order"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # ❌ Prevent updates if order is already delivered
-        if order.status == "Delivered":
-            return Response({"error": "This order has already been delivered and cannot be updated"}, status=status.HTTP_400_BAD_REQUEST)
-
         if new_status == "Cancelled":
-            order.is_active = False  # Soft delete order
+            if order.status in ["Shipped", "Delivered"]:
+                return Response({"error": "Order cannot be cancelled at this stage"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Restore stock when order is canceled
+            order.status = "Cancelled"
+            order.is_active = False
+            order.save()
+
+            # Notify admin for manual refund
+            send_mail(
+                subject=f"Refund Request for Order {order.order_id}",
+                message=f"User {order.user.email} has cancelled Order {order.order_id}. Please process the refund manually.",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[f"{order.user.email}"]
+            )
+
+            return Response({"message": "Order cancelled. Refund will be processed manually."}, status=status.HTTP_200_OK)
+
+        elif new_status == "Shipped":
+            self.permission_classes = [IsAdminOrStaff]
+            self.check_permissions(request)
+            order.status = "Shipped"
+
+            # Reduce stock once order is shipped
             for item in order.order_details.all():
-                product = item.product
-                product.stock += item.quantity  # Return stock to inventory
-                product.save()
+                item.product.stock = F("stock") - item.quantity
+                item.product.save()
 
-        elif new_status in ["Processing", "Shipped", "Delivered"]:
-            order.status = new_status
+        elif new_status == "Delivered":
+            self.permission_classes = [IsAdminOrStaff]
+            self.check_permissions(request)
+            order.status = "Delivered"
+
         else:
             return Response({"error": "Invalid status update"}, status=status.HTTP_400_BAD_REQUEST)
 
         order.save()
-        return Response(OrderSerializer(order,context={'request': request}).data)
+        return Response(OrderSerializer(order, context={"request": request}).data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def payment_webhook(request):
+    """Handle Razorpay payment success or failure from GET callback."""
+    razorpay_payment_id = request.GET.get("razorpay_payment_id")
+    razorpay_payment_link_id = request.GET.get("razorpay_payment_link_id")
+    razorpay_payment_link_status = request.GET.get("razorpay_payment_link_status")
+    razorpay_payment_link_reference_id = request.GET.get("razorpay_payment_link_reference_id")
+    razorpay_signature = request.GET.get("razorpay_signature")
+
+    if not (razorpay_payment_id and razorpay_payment_link_id and razorpay_payment_link_status and razorpay_signature):
+        return JsonResponse({"error": "Missing required parameters"}, status=400)
+
+    client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+    client.utility.verify_payment_link_signature({
+        "payment_link_id": razorpay_payment_link_id,
+        "payment_link_reference_id": razorpay_payment_link_reference_id,
+        "payment_link_status": razorpay_payment_link_status,
+        "razorpay_payment_id": razorpay_payment_id,
+        "razorpay_signature": razorpay_signature
+    })
+
+    order = Order.objects.filter(razorpay_payment_link_id=razorpay_payment_link_id, is_active=True).first()
+    if not order:
+        return JsonResponse({"error": "Order not found or inactive"}, status=400)
+
+    if razorpay_payment_link_status == "paid":
+        order.status = "Processing"
+        order.razorpay_payment_id = razorpay_payment_id
+        order.save()
+
+        # Soft delete CartItems after successful payment
+        CartItem.objects.filter(cart__user=order.user, is_active=True).update(is_active=False)
+
+        return JsonResponse({"message": "Payment verified, order is now Processing, cart items deactivated"}, status=200)
+
+    elif razorpay_payment_link_status == "failed":
+        order.status = "Failed"
+        order.save()
+
+    return JsonResponse({"error": "Unknown status received"}, status=400)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, IsAdminOrStaff])

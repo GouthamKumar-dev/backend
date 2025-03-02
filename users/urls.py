@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView
+from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView
 from rest_framework_simplejwt.views import TokenVerifyView
 
 urlpatterns = [
