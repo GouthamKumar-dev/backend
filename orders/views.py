@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Order, OrderDetail, Cart, CartItem
 from products.models import Product
 from .serializers import CartItemSerializer, OrderSerializer, CartSerializer, OrderDetailSerializer
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes, api_view
 from users.permissions import IsAdminOrStaff,IsAdminUser
 from users.serializers import UserSerializer
 from django.shortcuts import get_object_or_404
@@ -264,8 +264,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.save()
         return Response(OrderSerializer(order,context={'request': request}).data)
 
-@action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsAdminOrStaff])
-def all_orders(self, request):
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdminOrStaff])
+def all_orders(request):
     """ 
     Admin/Staff can view all orders 
     """
