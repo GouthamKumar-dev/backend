@@ -1,6 +1,4 @@
 # ecommerce/urls.py
-
-from django.contrib import admin
 from django.urls import path, include
 from rest_framework.permissions import AllowAny
 from drf_yasg.views import get_schema_view
@@ -23,9 +21,6 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    # Admin Panel
-    path('admin/', admin.site.urls),
-
     # App-specific URLs
     path('api/users/', include('users.urls')),
     path('api/products/', include('products.urls')),
