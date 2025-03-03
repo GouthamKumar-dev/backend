@@ -1,6 +1,4 @@
 # ecommerce/urls.py
-
-from django.contrib import admin
 from django.urls import path, include
 from rest_framework.permissions import AllowAny
 from drf_yasg.views import get_schema_view
@@ -25,9 +23,6 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     # Admin Panel
-    path('admin/', admin.site.urls),
-
-    #all for html
     path('', landing_page, name='landing_page'),
     path('send-query-email/', send_query_email, name='send_query_email'),
     path('terms-and-conditions/', terms_and_conditions, name='terms_and_conditions'),

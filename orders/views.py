@@ -283,27 +283,29 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Update order status, including handling order cancellations."""
         order = self.get_object()
         new_status = request.data.get("status")
+        previous_status = order.status  # Store previous status before updating
 
         if not order.is_active:
             return Response({"error": "Cannot update an inactive order"}, status=status.HTTP_400_BAD_REQUEST)
 
         if new_status == "Cancelled":
-            if order.status in ["Shipped", "Delivered"]:
+            if previous_status in ["Shipped", "Delivered"]:
                 return Response({"error": "Order cannot be cancelled at this stage"}, status=status.HTTP_400_BAD_REQUEST)
 
             order.status = "Cancelled"
             order.is_active = False
             order.save()
 
-            # Notify admin for manual refund
-            send_mail(
-                subject=f"Refund Request for Order {order.order_id}",
-                message=f"User {order.user.email} has cancelled Order {order.order_id}. Please process the refund manually.",
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[f"{order.user.email}"]
-            )
+            # **Send email only if the previous status was "Processing"**
+            if previous_status == "Processing":
+                send_mail(
+                    subject=f"Refund Request for Order {order.order_id}",
+                    message=f"User {order.user.email} has cancelled Order {order.order_id}. Please process the refund manually.",
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[f"{order.user.email}"]
+                )
 
-            return Response({"message": "Order cancelled. Refund will be processed manually."}, status=status.HTTP_200_OK)
+            return Response({"message": "Order cancelled successfully."}, status=status.HTTP_200_OK)
 
         elif new_status == "Shipped":
             self.permission_classes = [IsAdminOrStaff]
