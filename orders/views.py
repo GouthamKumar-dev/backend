@@ -225,7 +225,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     "email": user.email,
                     "contact": user.phone_number,  # Ensure phone number is available
                 },
-                "callback_url": "https://e1ef-49-207-229-16.ngrok-free.app/api/orders/payment-webhook/",
+                "callback_url": "https://9628-49-207-208-162.ngrok-free.app/api/orders/payment-webhook/",
                 "callback_method": "get"
             })
 
@@ -302,7 +302,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     subject=f"Refund Request for Order {order.order_id}",
                     message=f"User {order.user.email} has cancelled Order {order.order_id}. Please process the refund manually.",
                     from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=[f"{order.user.email}"]
+                    recipient_list=["thundiltraders.kollam@gmail.com"]
                 )
 
             return Response({"message": "Order cancelled successfully."}, status=status.HTTP_200_OK)
