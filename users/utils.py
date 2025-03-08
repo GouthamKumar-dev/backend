@@ -1,7 +1,7 @@
 import random
 from django.core.mail import send_mail
 from django.conf import settings
-from twilio.rest import Client
+# from twilio.rest import Client
 from .models import OTP
 
 def generate_otp():
@@ -31,12 +31,12 @@ def send_otp_email(email, otp):
     message = f"Your OTP code is: {otp}. It expires in 5 minutes."
     send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
 
-def send_otp_sms(phone_number, otp):
-    """Send OTP via SMS using Twilio."""
-    client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-    message = client.messages.create(
-        body=f"Your OTP code is: {otp}",
-        from_=settings.TWILIO_PHONE_NUMBER,
-        to=phone_number
-    )
-    return message.sid
+# def send_otp_sms(phone_number, otp):
+#     """Send OTP via SMS using Twilio."""
+#     client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+#     message = client.messages.create(
+#         body=f"Your OTP code is: {otp}",
+#         from_=settings.TWILIO_PHONE_NUMBER,
+#         to=phone_number
+#     )
+#     return message.sid
