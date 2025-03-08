@@ -18,7 +18,7 @@ from django.contrib.auth import authenticate
 from rest_framework import status
 from ecommerce.logger import logger
 from .serializers import SignupSerializer, LoginSerializer, OTPVerifySerializer, ResetPasswordSerializer
-from .utils import generate_otp, store_otp, send_otp_email, send_otp_sms, verify_otp
+from .utils import generate_otp, store_otp, send_otp_email, verify_otp
 
 class CustomRefreshToken(RefreshToken):
     @classmethod
@@ -45,7 +45,7 @@ class SignupView(APIView):
 
             # Send OTP via Email & SMS
             send_otp_email(user.email, otp)
-            send_otp_sms(user.phone_number, otp)
+            # send_otp_sms(user.phone_number, otp)
 
             return Response({"message": "OTP sent to email and phone number."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -65,7 +65,7 @@ class LoginRequestOTPView(APIView):
                 store_otp(user.email, otp)
 
                 send_otp_email(user.email, otp)
-                send_otp_sms(user.phone_number, otp)
+                # send_otp_sms(user.phone_number, otp)
 
                 return Response({"message": "OTP sent to email and phone number."}, status=status.HTTP_200_OK)
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -104,7 +104,7 @@ class ForgotPasswordRequestOTPView(APIView):
             store_otp(user.email, otp)
             store_otp(user.phone_number, otp)
             send_otp_email(user.email, otp)
-            send_otp_sms(user.phone_number, otp)
+            # send_otp_sms(user.phone_number, otp)
             return Response({"message": "OTP sent to reset password."}, status=status.HTTP_200_OK)
         return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
