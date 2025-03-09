@@ -225,7 +225,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     "email": user.email,
                     "contact": user.phone_number,  # Ensure phone number is available
                 },
-                "callback_url": "https://9628-49-207-208-162.ngrok-free.app/api/orders/payment-webhook/",
+                "callback_url": "https://tstocks.in/api/orders/payment-webhook/",
                 "callback_method": "get"
             })
 
