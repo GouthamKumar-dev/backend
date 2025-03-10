@@ -8,6 +8,7 @@ from drf_yasg import openapi
 from users.views import CustomTokenObtainPairView, LogoutView, LoginView
 from django.conf import settings
 from django.conf.urls.static import static
+from .views import landing_page,send_query_email
 
 # drf-yasg Schema View Configuration
 schema_view = get_schema_view(
@@ -26,6 +27,8 @@ schema_view = get_schema_view(
 urlpatterns = [
     # Admin Panel
     path('admin/', admin.site.urls),
+    path('', landing_page, name='landing_page'),
+    path('send-query-email/', send_query_email, name='send_query_email'),
 
     # App-specific URLs
     path('api/users/', include('users.urls')),
@@ -40,3 +43,4 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
