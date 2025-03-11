@@ -37,6 +37,9 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['tstocks.in']
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://tstocks.in"
+]
 # Application definition
 
 INSTALLED_APPS = [
