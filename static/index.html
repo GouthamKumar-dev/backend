@@ -1,0 +1,339 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Page</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="https://unpkg.com/swiper@7/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta2/css/all.min.css" />
+    
+</head>
+
+<body>
+    <header class="header">
+        <a href="#" class="logo"><i class="fas fa-shopping-basket"></i>Thundil Traders</a>
+
+
+        <nav class="navbar">
+            <a href="#">Home</a>
+            <a href="#features">Features</a>
+            <a href="#products">Products</a>
+            <a href="#category">Categories</a>
+        </nav>
+
+
+
+        <div class="icons">
+            <div class="fas fa-bars" id="menu-btn"></div>
+            <div class="fas fa-search" id="search-btn"></div>
+        </div>
+
+        <form class="search-form">
+            <input type="search" id="search-box" placeholder="search here....">
+            <label for="search-box" class="fas fa-search"></label>
+        </form>
+
+    </header>
+    <!-- header section ends -->
+
+    <!-- home section starts  -->
+
+    <section class="home" id="home">
+
+        <div class="content">
+            <h3>Built to Last, Priced for <span>You</span></h3>
+
+            <p>daily electrical, plumbing, and any such hardware needs.</p>
+        </div>
+
+    </section>
+
+    <!-- home section ends -->
+
+    <!-- features section starts  -->
+    <section class="features" id="features">
+        <h1 class="heading">our <span>features</span></h1>
+        <div class="box-container">
+            <div class="box">
+                <img src="{% static 'image/new-removebg-preview.png' %}" alt="">
+                <h3>Tailored for you</h3>
+                <p>Whether you're a DIY enthusiast or a professional contractor, we have everything you need to tackle any project with confidence!</p>
+            </div>
+
+            <div class="box">
+                <img src="{% static 'image/feature-img-2.png' %}" alt="">
+                <h3>free delivery</h3>
+                <p>Enjoy free delivery on all your hardware essentials! Get tools, building materials, and supplies delivered straight to your doorstep</p>
+            </div>
+
+            <div class="box">
+                <img src="{% static 'image/feature-img-3.png' %}" alt="">
+                <h3>easy payments</h3>
+                <p>Pay your way with our easy and secure payment options! We accept cards, digital wallets, and cash on delivery, making your hardware shopping smooth and stress-free.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- products section starts  -->
+
+    <section class="products" id="products">
+
+        <h1 class="heading"> our <span>products</span> </h1>
+
+        <div class="swiper product-slider">
+
+            <div class="swiper-wrapper">
+
+                <div class="swiper-slide box">
+                    <img src="{% static 'image/product-1.png' %}" alt="">
+                    <h3>Power Drill</h3>
+                    <div class="price"> 2,500 Rs. - 3,500 Rs. </div>
+                    <div class="stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                </div>
+
+                <div class="swiper-slide box">
+                    <img src="{% static 'image/product-2.png' %}" alt="">
+                    <h3>Hammer</h3>
+                    <div class="price"> 700 Rs. - 2,000 Rs. </div>
+                    <div class="stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                </div>
+
+                <div class="swiper-slide box">
+                    <img src="{% static 'image/product-3.png' %}" alt="">
+                    <h3>Screwdriver set</h3>
+                    <div class="price"> 400 Rs. - 1,000 Rs. </div>
+                    <div class="stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                </div>
+
+                <div class="swiper-slide box">
+                    <img src="{% static 'image/product-4.png' %}" alt="">
+                    <h3>Wrench Set</h3>
+                    <div class="price"> 400 Rs. - 2,200 Rs. </div>
+                    <div class="stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="swiper product-slider">
+
+            <div class="swiper-wrapper">
+
+                <div class="swiper-slide box">
+                    <img src="{% static 'image/product-5.png' %}" alt="">
+                    <h3>Measuring Tape</h3>
+                    <div class="price"> 200 Rs. - 500 Rs. </div>
+                    <div class="stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                </div>
+
+                <div class="swiper-slide box">
+                    <img src="{% static 'image/product-6.png' %}" alt="">
+                    <h3>Pliers</h3>
+                    <div class="price">100 Rs. - 1500 Rs. </div>
+                    <div class="stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                </div>
+
+                <div class="swiper-slide box">
+                    <img src="{% static 'image/product-7.png' %}" alt="">
+                    <h3>Hand Saw</h3>
+                    <div class="price"> 100 Rs. - 700 Rs. </div>
+                    <div class="stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                </div>
+
+                <div class="swiper-slide box">
+                    <img src="{% static 'image/product-8.png' %}" alt="">
+                    <h3>Ladder</h3>
+                    <div class="price"> 2000 Rs. - 6000 Rs. </div>
+                    <div class="stars">
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star"></i>
+                        <i class="fas fa-star-half-alt"></i>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </section>
+
+    <!-- products section ends -->
+
+
+    <!-- categories section starts  -->
+    <section class="categories" id="category">
+        <h1 class="heading">product <span>categories</span></h1>
+        <div class="box-container">
+            <div class="box">
+                <img src="{% static 'image/cat-1.png' %}" alt="">
+                <h3>Power Tools</h3>
+                <p>upto 45% off</p>
+            </div>
+
+            <div class="box">
+                <img src="{% static 'image/cat-2.png' %}" alt="">
+                <h3>Hand Tools</h3>
+                <p>upto 45% off</p>
+            </div>
+
+            <div class="box">
+                <img src="{% static 'image/cat-3.png' %}" alt="">
+                <h3>Measuring & Leveling Tools</h3>
+                <p>upto 45% off</p>
+            </div>
+
+            <div class="box">
+                <img src="{% static 'image/cat-4.png' %}" alt="">
+                <h3>Safety & Accessibility</h3>
+                <p>upto 45% off</p>
+            </div>
+        </div>
+    </section>
+    <!-- categories section ends  -->
+
+    <!-------------Footer Section---------------------->
+    <section class="footer">
+        <div class="box-container">
+            <div class="box">
+                <h3><i class="fas fa-shopping-basket"></i>Thundil Traders </h3>
+                <p>Your trusted hardware store for quality tools, durable materials, and expert advice. From home repairs to big projects, we’ve got everything you need to build with confidence.</p>
+                <!-- <div class="share">
+                    <a href="#" class="fab fa-facebook-f"></a>
+                    <a href="#" class="fab fa-twitter"></a>
+                    <a href="#" class="fab fa-instagram"></a>
+                    <a href="#" class="fab fa-linkedin"></a>
+                </div> -->
+            </div>
+
+            <div class="box">
+                <h3>contact info</h3>
+                <a href="#" class="links"><i class="fas fa-phone"></i>+918590686766</a>
+                <a href="#" class="links"><i class="fas fa-phone"></i>+919746312092</a>
+                <a href="#" class="links"><i class="fas fa-envelope"></i>thundiltraders.kollam@gmail.com</a>
+                <a href="#" class="links"><i class="fas fa-map-marker-alt"></i>Kollam,India</a>
+            </div>
+
+            <div class="box">
+                <h3>Quick links</h3>
+                <a href="#" class="links"><i class="fas fa-arrow-right"></i>Home</a>
+                <a href="#" class="links"><i class="fas fa-arrow-right"></i>Features</a>
+                <a href="#" class="links"><i class="fas fa-arrow-right"></i>Products</a>
+                <a href="#" class="links"><i class="fas fa-arrow-right"></i>Categories</a>
+            </div>
+
+            <div class="box">
+                <h3>Have a Query? Contact Us!</h3>
+                <p>Submit your email, and we'll get back to you.</p>
+                <form method="POST" action="{% url 'send_query_email' %}">
+                    {% csrf_token %}
+                    <input type="email" name="email" placeholder="Your Email" class="email" required>
+                    <textarea rows="4" cols="47" name="message" placeholder="Your Message" class="message" required></textarea>
+                    <input type="submit" value="Send Query" class="btn">
+                </form>
+            </div>
+        </div>
+    </section>
+
+
+    <!----------------Scripts------------------------->
+    <script src="https://unpkg.com/swiper@7/swiper-bundle.min.js"></script>
+    <script src="{% static 'js/script.js' %}"></script>
+
+    <script>
+        var swiper = new Swiper(".review-slider", {
+            loop: true,
+            spaceBetween: 20,
+            autoplay: {
+                delay: 7500,
+                disableOnInteraction: false,
+            },
+            centeredSlides: true,
+            breakpoints: {
+                0: {
+                    slidesPerView: 1,
+                },
+                768: {
+                    slidesPerView: 2,
+                },
+                1020: {
+                    slidesPerView: 3,
+                },
+            },
+        });
+    </script>
+    <script>
+        var swiper = new Swiper(".product-slider", {
+            loop: true,
+            spaceBetween: 20,
+            autoplay: {
+                delay: 7500,
+                disableOnInteraction: false,
+            },
+            centeredSlides: true,
+            breakpoints: {
+                0: {
+                    slidesPerView: 1,
+                },
+                768: {
+                    slidesPerView: 2,
+                },
+                1020: {
+                    slidesPerView: 3,
+                },
+            },
+        });
+    </script>
+</body>
+
+</html>
