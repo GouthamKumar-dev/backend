@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView, CustomerLoginRequestOTPView, CustomerVerifyOTPView,CustomerSignupView
+from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView, CustomerLoginRequestOTPView
 from rest_framework_simplejwt.views import TokenVerifyView
 
 urlpatterns = [
@@ -12,10 +12,8 @@ urlpatterns = [
     path('verify-otp/', VerifyOTPView.as_view(), name='verify_otp'),
     path('forgot-password/', ForgotPasswordRequestOTPView.as_view(), name='forgot_password_request_otp'),
     path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
-     path('customer/signup/', CustomerSignupView.as_view(), name='customer-signup'),
     # Customer-specific login with email & OTP
     path('customer/login/', CustomerLoginRequestOTPView.as_view(), name='customer_login_request_otp'),
-    path('customer/verify-otp/', CustomerVerifyOTPView.as_view(), name='customer_verify_otp'),
     # User and token related
     path('create-user/', CreateUserView.as_view(), name='create-user'),
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),  # Get access and refresh tokens

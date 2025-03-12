@@ -2,7 +2,7 @@
 from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes, action
 from .models import CustomUser ,UserRole
-from .serializers import UserSerializer,CustomTokenObtainPairSerializer,CustomTokenRefreshSerializer,SignupSerializer, LoginSerializer, CreateUserSerializer
+from .serializers import UserSerializer,CustomTokenObtainPairSerializer,CustomTokenRefreshSerializer, LoginSerializer, CreateUserSerializer,OTPVerifySerializer, ResetPasswordSerializer, LoginWithEmailSerializer,CustomerSignupSerializer
 from .permissions import IsAdminUser, IsStaffUser, IsAdminOrStaff
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -16,8 +16,7 @@ from rest_framework.response import Response
 
 from django.contrib.auth import authenticate
 from rest_framework import status
-from ecommerce.logger import logger
-from .serializers import SignupSerializer, LoginSerializer, OTPVerifySerializer, ResetPasswordSerializer, LoginWithEmailSerializer,CustomerSignupSerializer
+from ecommerce.logger import logger 
 from .utils import generate_otp, store_otp, send_otp_email, verify_otp
 
 class CustomRefreshToken(RefreshToken):
@@ -36,7 +35,7 @@ class SignupView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = SignupSerializer(data=request.data)
+        serializer = CustomerSignupSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             otp = generate_otp()
@@ -81,17 +80,25 @@ class VerifyOTPView(APIView):
             otp = serializer.validated_data["otp"]
 
             if verify_otp(identifier, otp):
+                # Check if the user exists (either by email or phone)
                 user = CustomUser.objects.filter(email=identifier).first() or CustomUser.objects.filter(phone_number=identifier).first()
+                
                 if user:
                     refresh = RefreshToken.for_user(user)
-                    return Response({
-                        "user": {"username": user.username, "email": user.email, "phone_number": user.phone_number, "role":user.role},
+                    response_data = {
+                        "user": UserSerializer(user).data,
                         "refresh": str(refresh),
                         "access": str(refresh.access_token),
-                    }, status=status.HTTP_200_OK)
+                    }
+
+                    return Response(response_data, status=status.HTTP_200_OK)
+                
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
             return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ForgotPasswordRequestOTPView(APIView):
     permission_classes = [AllowAny]
@@ -99,14 +106,22 @@ class ForgotPasswordRequestOTPView(APIView):
     def post(self, request):
         phone_number = request.data.get("phone_number")
         user = CustomUser.objects.filter(phone_number=phone_number).first()
-        if user:
-            otp = generate_otp()
-            store_otp(user.email, otp)
-            store_otp(user.phone_number, otp)
-            send_otp_email(user.email, otp)
-            # send_otp_sms(user.phone_number, otp)
-            return Response({"message": "OTP sent to reset password."}, status=status.HTTP_200_OK)
-        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not user:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Ensure only Admins and Staff can request password reset
+        if user.role not in [UserRole.ADMIN, UserRole.STAFF]:
+            return Response({"error": "Your user role cannot perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+        otp = generate_otp()
+        store_otp(user.email, otp)
+        store_otp(user.phone_number, otp)
+        send_otp_email(user.email, otp)
+        # send_otp_sms(user.phone_number, otp)
+
+        return Response({"message": "OTP sent to reset password."}, status=status.HTTP_200_OK)
+
 
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
@@ -118,15 +133,25 @@ class ResetPasswordView(APIView):
             otp = serializer.validated_data["otp"]
             new_password = serializer.validated_data["new_password"]
 
-            if verify_otp(phone_number, otp):
-                user = CustomUser.objects.filter(phone_number=phone_number).first()
-                if user:
-                    user.set_password(new_password)
-                    user.save()
-                    return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
+            if not verify_otp(phone_number, otp):
+                return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = CustomUser.objects.filter(phone_number=phone_number).first()
+
+            if not user:
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Ensure only Admins and Staff can reset passwords
+            if user.role not in [UserRole.ADMIN, UserRole.STAFF]:
+                return Response({"error": "Your user role cannot perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+            user.set_password(new_password)
+            user.save()
+
+            return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CreateUserView(APIView):
     """
@@ -253,34 +278,4 @@ class CustomerLoginRequestOTPView(APIView):
                 return Response({"message": "OTP sent to email."}, status=status.HTTP_200_OK)
             return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class CustomerVerifyOTPView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = OTPVerifySerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data["identifier"]
-            otp = serializer.validated_data["otp"]
-
-            if verify_otp(email, otp):
-                user = CustomUser.objects.filter(email=email, role=UserRole.CUSTOMER).first()
-                if user:
-                    refresh = RefreshToken.for_user(user)
-                    return Response({
-                        "user": UserSerializer(user).data,
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                    }, status=status.HTTP_200_OK)
-                return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-class CustomerSignupView(APIView):
-     permission_classes = [AllowAny]
-     def post(self, request):
-        serializer = CustomerSignupSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "Customer registered successfully."}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
