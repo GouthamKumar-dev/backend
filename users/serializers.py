@@ -103,7 +103,19 @@ class CustomTokenRefreshSerializer(TokenRefreshSerializer):
 
         except Exception as e:
             raise InvalidToken("The token is invalid or expired.") from e
+        
+class LoginWithEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()        
 
+#customer_signup
+class CustomerSignupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'email', 'phone_number']  # No password field
 
+    def create(self, validated_data):
+        validated_data['role'] = UserRole.CUSTOMER  # Force role to CUSTOMER
+        user = CustomUser.objects.create(**validated_data)
+        return user
 
 
