@@ -302,7 +302,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     subject=f"Refund Request for Order {order.order_id}",
                     message=f"User {order.user.email} has cancelled Order {order.order_id}. Please process the refund manually.",
                     from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=["thundiltraders.kollam@gmail.com"]
+                    recipient_list=[settings.EMAIL_HOST_USER]
                 )
 
             return Response({"message": "Order cancelled successfully."}, status=status.HTTP_200_OK)
