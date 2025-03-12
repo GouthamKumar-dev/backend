@@ -1,7 +1,7 @@
 # views.py
 from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes, action
-from .models import CustomUser
+from .models import CustomUser ,UserRole
 from .serializers import UserSerializer,CustomTokenObtainPairSerializer,CustomTokenRefreshSerializer,SignupSerializer, LoginSerializer, CreateUserSerializer
 from .permissions import IsAdminUser, IsStaffUser, IsAdminOrStaff
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework import status
 from ecommerce.logger import logger
-from .serializers import SignupSerializer, LoginSerializer, OTPVerifySerializer, ResetPasswordSerializer
+from .serializers import SignupSerializer, LoginSerializer, OTPVerifySerializer, ResetPasswordSerializer, LoginWithEmailSerializer,CustomerSignupSerializer
 from .utils import generate_otp, store_otp, send_otp_email, verify_otp
 
 class CustomRefreshToken(RefreshToken):
@@ -236,3 +236,51 @@ class UpdateShippingAddressView(APIView):
         user.save()
 
         return Response({"message": "Shipping address updated successfully", "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
+
+# customer login using email and otp
+class CustomerLoginRequestOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = LoginWithEmailSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data["email"]
+            user = CustomUser.objects.filter(email=email, role=UserRole.CUSTOMER).first()
+            if user:
+                otp = generate_otp()
+                store_otp(user.email, otp)
+                send_otp_email(user.email, otp)
+                return Response({"message": "OTP sent to email."}, status=status.HTTP_200_OK)
+            return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CustomerVerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = OTPVerifySerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data["identifier"]
+            otp = serializer.validated_data["otp"]
+
+            if verify_otp(email, otp):
+                user = CustomUser.objects.filter(email=email, role=UserRole.CUSTOMER).first()
+                if user:
+                    refresh = RefreshToken.for_user(user)
+                    return Response({
+                        "user": UserSerializer(user).data,
+                        "refresh": str(refresh),
+                        "access": str(refresh.access_token),
+                    }, status=status.HTTP_200_OK)
+                return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class CustomerSignupView(APIView):
+     permission_classes = [AllowAny]
+     def post(self, request):
+        serializer = CustomerSignupSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Customer registered successfully."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
