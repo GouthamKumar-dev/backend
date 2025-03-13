@@ -26,10 +26,9 @@
             <a href="#category">Categories</a>
         </nav>
 
-
-
         <div class="icons">
             <div class="fas fa-bars" id="menu-btn"></div>
+            <div class="fas fa-shopping-cart" id="cart-btn"></div>
             <div class="fas fa-search" id="search-btn"></div>
         </div>
 
@@ -37,6 +36,16 @@
             <input type="search" id="search-box" placeholder="search here....">
             <label for="search-box" class="fas fa-search"></label>
         </form>
+
+        <div class="shopping-cart">
+            <div id="cart-items"></div>
+            <div id="checkout-section">
+                <input type="email" id="email-input" placeholder="Enter your email" required>
+                <button id="checkout-btn" class="btn">Checkout</button>
+            </div>
+        </div>
+        
+        
 
     </header>
     <!-- header section ends -->
@@ -92,7 +101,7 @@
                 <div class="swiper-slide box">
                     <img src="{% static 'image/product-1.png' %}" alt="">
                     <h3>Power Drill</h3>
-                    <div class="price"> 2,500 Rs. - 3,500 Rs. </div>
+                    <div class="price"> 2,500 Rs. </div>
                     <div class="stars">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -100,12 +109,13 @@
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
+                    <a href="#" class="btn" data-name="Power Drill" data-price="2500">Add to Cart</a>
                 </div>
 
                 <div class="swiper-slide box">
                     <img src="{% static 'image/product-2.png' %}" alt="">
                     <h3>Hammer</h3>
-                    <div class="price"> 700 Rs. - 2,000 Rs. </div>
+                    <div class="price"> 700 Rs. </div>
                     <div class="stars">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -113,12 +123,13 @@
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
+                    <a href="#" class="btn" data-name="Hammer" data-price="700">Add to Cart</a>
                 </div>
 
                 <div class="swiper-slide box">
                     <img src="{% static 'image/product-3.png' %}" alt="">
                     <h3>Screwdriver set</h3>
-                    <div class="price"> 400 Rs. - 1,000 Rs. </div>
+                    <div class="price"> 1,000 Rs. </div>
                     <div class="stars">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -126,12 +137,13 @@
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
+                    <a href="#" class="btn" data-name="Screwdriver set" data-price="1000">Add to Cart</a>
                 </div>
 
                 <div class="swiper-slide box">
                     <img src="{% static 'image/product-4.png' %}" alt="">
                     <h3>Wrench Set</h3>
-                    <div class="price"> 400 Rs. - 2,200 Rs. </div>
+                    <div class="price"> 2,200 Rs. </div>
                     <div class="stars">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -139,6 +151,7 @@
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
+                    <a href="#" class="btn" data-name="Wrench Set" data-price="2200">Add to Cart</a>
                 </div>
 
             </div>
@@ -152,7 +165,7 @@
                 <div class="swiper-slide box">
                     <img src="{% static 'image/product-5.png' %}" alt="">
                     <h3>Measuring Tape</h3>
-                    <div class="price"> 200 Rs. - 500 Rs. </div>
+                    <div class="price"> 500 Rs. </div>
                     <div class="stars">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -160,12 +173,13 @@
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
+                    <a href="#" class="btn" data-name="Measuring Tape" data-price="500">Add to Cart</a>
                 </div>
 
                 <div class="swiper-slide box">
                     <img src="{% static 'image/product-6.png' %}" alt="">
                     <h3>Pliers</h3>
-                    <div class="price">100 Rs. - 1500 Rs. </div>
+                    <div class="price"> 500 Rs. </div>
                     <div class="stars">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -173,12 +187,13 @@
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
+                    <a href="#" class="btn" data-name="Pliers" data-price="500">Add to Cart</a>
                 </div>
 
                 <div class="swiper-slide box">
                     <img src="{% static 'image/product-7.png' %}" alt="">
                     <h3>Hand Saw</h3>
-                    <div class="price"> 100 Rs. - 700 Rs. </div>
+                    <div class="price"> 700 Rs. </div>
                     <div class="stars">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -186,12 +201,13 @@
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
+                    <a href="#" class="btn" data-name="Hand Saw" data-price="700">Add to Cart</a>
                 </div>
 
                 <div class="swiper-slide box">
                     <img src="{% static 'image/product-8.png' %}" alt="">
                     <h3>Ladder</h3>
-                    <div class="price"> 2000 Rs. - 6000 Rs. </div>
+                    <div class="price"> 6000 Rs. </div>
                     <div class="stars">
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
@@ -199,6 +215,7 @@
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
+                    <a href="#" class="btn" data-name="Ladder" data-price="6000">Add to Cart</a>
                 </div>
 
             </div>
@@ -248,10 +265,10 @@
             <div class="box">
                 <h3><i class="fas fa-shopping-basket"></i>Thundil Traders </h3>
                 <p> 
-                    <a href="https://merchant.razorpay.com/policy/PzNaiNhnxQcK2B/terms" class="links">Terms and Conditions</a>
-                    <a href="https://merchant.razorpay.com/policy/PzNaiNhnxQcK2B/privacy" class="links">Privacy Policy</a>
-                    <a href="https://merchant.razorpay.com/policy/PzNaiNhnxQcK2B/refund" class="links">Cancellation and Refunds</a> 
-                    <a href="https://merchant.razorpay.com/policy/PzNaiNhnxQcK2B/shipping" class="links">Shipping Policy</a> 
+                    <a href="{% url 'terms_and_conditions' %}" class="links">Terms and Conditions</a>
+                    <a href="{% url 'privacy_policy' %}" class="links">Privacy Policy</a>
+                    <a href="{% url 'cancellation_and_refunds' %}" class="links">Cancellation and Refunds</a>
+                    <a href="{% url 'shipping_policy' %}" class="links">Shipping Policy</a>
                 </p>
                 <!-- <div class="share">
                     <a href="#" class="fab fa-facebook-f"></a>
@@ -293,6 +310,9 @@
 
     <!----------------Scripts------------------------->
     <script src="https://unpkg.com/swiper@7/swiper-bundle.min.js"></script>
+    <script>
+        const SEND_QUERY_URL = "{% url 'send_query_email' %}";
+    </script>
     <script src="{% static 'js/script.js' %}"></script>
 
     <script>

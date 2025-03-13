@@ -8,7 +8,7 @@ from drf_yasg import openapi
 from users.views import CustomTokenObtainPairView, LogoutView, LoginView
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import landing_page,send_query_email
+from .views import landing_page,send_query_email,terms_and_conditions,privacy_policy,cancellation_and_refunds,shipping_policy
 
 # drf-yasg Schema View Configuration
 schema_view = get_schema_view(
@@ -27,8 +27,14 @@ schema_view = get_schema_view(
 urlpatterns = [
     # Admin Panel
     path('admin/', admin.site.urls),
+
+    #all for html
     path('', landing_page, name='landing_page'),
     path('send-query-email/', send_query_email, name='send_query_email'),
+    path('terms-and-conditions/', terms_and_conditions, name='terms_and_conditions'),
+    path('privacy-policy/', privacy_policy, name='privacy_policy'),
+    path('cancellation-and-refunds/', cancellation_and_refunds, name='cancellation_and_refunds'),
+    path('shipping-policy/', shipping_policy, name='shipping_policy'),
 
     # App-specific URLs
     path('api/users/', include('users.urls')),

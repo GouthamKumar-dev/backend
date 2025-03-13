@@ -169,9 +169,10 @@ header {
     box-shadow: 0.5rem 1.5rem rgba(0, 0, 0, 1);
     background: #fff;
     padding: 1rem;
-    top: 110%;
+    top: 100%; /* Adjusted from 110% */
     right: -110%;
     border-radius: .5rem;
+    transition: right 0.4s ease-in-out;
 }
 
 .header .shopping-cart .box {
@@ -195,6 +196,7 @@ header {
     color: #666;
     transform: translateY(-50%);
 }
+
 
 .header .shopping-cart .box .fa-trash:hover {
     color: #ff7800;
