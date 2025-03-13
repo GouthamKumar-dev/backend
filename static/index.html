@@ -15,9 +15,9 @@
 </head>
 
 <body>
+    
     <header class="header">
         <a href="#" class="logo"><i class="fas fa-shopping-basket"></i>Thundil Traders</a>
-
 
         <nav class="navbar">
             <a href="#">Home</a>
@@ -283,7 +283,7 @@
                 <a href="#" class="links"><i class="fas fa-phone"></i>+918590686766</a>
                 <a href="#" class="links"><i class="fas fa-phone"></i>+919746312092</a>
                 <a href="#" class="links"><i class="fas fa-envelope"></i>thundiltraders.kollam@gmail.com</a>
-                <a href="#" class="links"><i class="fas fa-map-marker-alt"></i>Kollam,India</a>
+                <a href="#" class="links"><i class="fas fa-map-marker-alt"></i>Thundil Traders, Thattamala, Mylapure Junction, Kollam, Kerala, Pin: 691020.</a>
             </div>
 
             <div class="box">
@@ -297,11 +297,11 @@
             <div class="box">
                 <h3>Have a Query? Contact Us!</h3>
                 <p>Submit your email, and we'll get back to you.</p>
-                <form method="POST" action="{% url 'send_query_email' %}">
+                <form id="query-form">
                     {% csrf_token %}
                     <input type="email" name="email" placeholder="Your Email" class="email" required>
                     <textarea rows="4" cols="47" name="message" placeholder="Your Message" class="message" required></textarea>
-                    <input type="submit" value="Send Query" class="btn">
+                    <input type="submit" value="Send Query" class="query-btn">
                 </form>
             </div>
         </div>

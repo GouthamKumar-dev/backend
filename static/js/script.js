@@ -141,6 +141,37 @@ document.addEventListener("DOMContentLoaded", function () {
         button.addEventListener("click", addToCart);
     });
     
+    let queryForm = document.getElementById("query-form");
+
+    if (queryForm) {
+        queryForm.addEventListener("submit", function (event) {
+            event.preventDefault(); // Prevent default form submission
+
+            let formData = new FormData(queryForm); // Collect form data
+
+            fetch(SEND_QUERY_URL, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": formData.get("csrfmiddlewaretoken"), // CSRF token
+                },
+                body: formData // Send as FormData (not JSON)
+            })
+            .then(response => response.json()) // Parse JSON response
+            .then(data => {
+                if (data.success) {
+                    alert("✅ Query sent successfully!");
+                    queryForm.reset(); // Clear the form
+                } else {
+                    alert("❌ Error: " + (data.error || "Something went wrong"));
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("❌ Network error! Please try again.");
+            });
+        });
+    }
+    
 
 
     renderCart(); // Render cart on page load
