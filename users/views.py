@@ -46,7 +46,7 @@ class SignupView(APIView):
             send_otp_email(user.email, otp)
             # send_otp_sms(user.phone_number, otp)
 
-            return Response({"message": "OTP sent to email and phone number."}, status=status.HTTP_201_CREATED)
+            return Response({"message": "OTP sent to email"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginRequestOTPView(APIView):
@@ -66,7 +66,7 @@ class LoginRequestOTPView(APIView):
                 send_otp_email(user.email, otp)
                 # send_otp_sms(user.phone_number, otp)
 
-                return Response({"message": "OTP sent to email and phone number."}, status=status.HTTP_200_OK)
+                return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
