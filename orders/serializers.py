@@ -25,6 +25,11 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ['order_id', 'user', 'total_price', 'shipping_address', 'status', 'tracking_id', 'created_at', 'order_details','is_active']
 
+    def get_order_details(self, obj):
+        active_order_details = obj.order_details.filter(is_active=True)  # Filter only active details
+        request = self.context.get('request')
+        return OrderDetailSerializer(active_order_details, many=True, context={'request': request}).data
+
 
 class CartItemSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)

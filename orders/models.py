@@ -35,6 +35,7 @@ class Order(models.Model):
         ('Processing', 'Processing'),
         ('Shipped', 'Shipped'),
         ('Delivered', 'Delivered'),
+        ('Failed', 'Failed'),
         ('Cancelled', 'Cancelled'),
     ]
 
@@ -48,6 +49,9 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Pending")
     tracking_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    razorpay_payment_link_id = models.CharField(max_length=255, blank=True, null=True)  # Payment Link ID
+    razorpay_payment_id = models.CharField(max_length=255, blank=True, null=True)  # Set after payment
+    is_refunded = models.BooleanField(default=False)  # Track refunds
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)  # Soft delete flag for orders
 
