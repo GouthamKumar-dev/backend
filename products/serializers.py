@@ -27,10 +27,11 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "product_id",
-            "product_code",  # Include product_code in the fields
             "name",
             "description",
             "price",
+            "discount_percentage",  # NEW: Added discount percentage
+            "offer_price",
             "stock",
             "category",  # Now fetched with filtering
             "created_at",
@@ -59,66 +60,34 @@ class ProductSerializer(serializers.ModelSerializer):
         return [img.image.url for img in images if img.image]  # Use relative URL if request is None
 
     def handle_category(self, category_data):
-        """Handles category logic: reuse, reactivate, or create a new one while checking category_code."""
+        """Handles category logic: reuse, reactivate, or create a new one."""
         name = category_data.get("name", "").strip()
         description = category_data.get("description", "").strip()
-        category_code = category_data.get("category_code", "").strip()
 
-        if not category_code:
-            raise serializers.ValidationError("Category code is required.")
-
-        # Check if an active category exists with the same category_code
-        existing_active_category = Category.objects.filter(category_code=category_code, is_active=True).first()
-
+        # Check if an active category with the same name & description exists
+        existing_active_category = Category.objects.filter(name=name, description=description, is_active=True).first()
         if existing_active_category:
-            # Ensure name and description match; otherwise, return an error
-            if existing_active_category.name != name or existing_active_category.description != description:
-                raise serializers.ValidationError(f"Category code '{category_code}' already exists but with different details.")
-            return existing_active_category  # Use existing category
+            return existing_active_category  # Use existing active category
 
-        # Check if an inactive category exists with the same category_code
-        existing_inactive_category = Category.objects.filter(category_code=category_code, is_active=False).first()
-
+        # Check if an inactive category with the same name & description exists
+        existing_inactive_category = Category.objects.filter(name=name, description=description, is_active=False).first()
         if existing_inactive_category:
-            # Update name, description, and reactivate
-            existing_inactive_category.name = name
-            existing_inactive_category.description = description
-            existing_inactive_category.is_active = True
+            existing_inactive_category.is_active = True  # Reactivate category
             existing_inactive_category.save()
             return existing_inactive_category
 
         # Create a new category if none exists
-        return Category.objects.create(name=name, description=description, category_code=category_code, is_active=True)
+        return Category.objects.create(name=name, description=description, is_active=True)
 
     def create(self, validated_data):
-        category_data = self.initial_data.get("category", None)
+        category_data = self.initial_data.get("category", None)  # Use initial_data to get nested dict
         category = None
 
         if category_data:
-            category = self.handle_category(category_data)
+            category = self.handle_category(category_data)  # Call the category handling logic
 
-        product_code = validated_data.get("product_code", "").strip()
-
-        # 🔹 Check if a product with the same product_code already exists
-        existing_product = Product.objects.filter(product_code=product_code).first()
-
-        if existing_product:
-            if existing_product.is_active:
-                raise serializers.ValidationError(f"A product with product_code '{product_code}' already exists and is active.")
-            else:
-                # 🔹 Reactivate the inactive product
-                existing_product.is_active = True
-                existing_product.name = validated_data.get("name", existing_product.name)
-                existing_product.description = validated_data.get("description", existing_product.description)
-                existing_product.price = validated_data.get("price", existing_product.price)
-                existing_product.stock = validated_data.get("stock", existing_product.stock)
-                existing_product.category = category or existing_product.category  # Update category if provided
-                existing_product.save()
-                return existing_product  # Return the reactivated product
-
-        # 🔹 If no existing product, create a new one
-        validated_data["category"] = category
-        return Product.objects.create(**validated_data)
+        product = Product.objects.create(category=category, **validated_data)
+        return product
 
     def update(self, instance, validated_data):
         category_data = self.initial_data.get("category", None)

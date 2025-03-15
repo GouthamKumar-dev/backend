@@ -44,6 +44,8 @@ class Product(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
+    offer_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     stock = models.PositiveIntegerField()
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     product_code = models.CharField(max_length=100, default=None, blank=True, null=True)  # No unique=True here
@@ -54,6 +56,9 @@ class Product(models.Model):
     def save(self, *args, **kwargs):
         if not self.product_code:
             self.product_code = f"PROD-{uuid.uuid4().hex[:8]}"  # Generate default product_code
+            
+        self.offer_price = round(self.price - (self.price * self.discount_percentage / 100), 2)
+    
         super().save(*args, **kwargs)
 
     def __str__(self):
