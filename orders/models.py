@@ -67,8 +67,14 @@ class OrderDetail(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="order_details")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
-    price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2)
+    price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2, help_text="Stores the offer price at purchase")
     is_active = models.BooleanField(default=True)  # Soft delete flag for order details
+
+    def save(self, *args, **kwargs):
+        """Ensure price_at_purchase is the offer price at the time of purchase"""
+        if not self.price_at_purchase:  # Only set if not already provided
+            self.price_at_purchase = self.product.offer_price  # Store the offer price
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name} for Order #{self.order.order_id}"
