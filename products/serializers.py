@@ -22,6 +22,8 @@ class ProductSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()  # Use SerializerMethodField for filtering
     favorite_count = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    offer_price = serializers.SerializerMethodField()  # Dynamically fetched
+
 
     class Meta:
         model = Product
@@ -40,6 +42,13 @@ class ProductSerializer(serializers.ModelSerializer):
             "favorite_count",
             "images",
         ]
+        
+    def get_offer_price(self, obj):
+        """Calculate offer price dynamically using discount_percentage."""
+        if obj.discount_percentage:  # Ensure discount exists
+            return obj.price * (1 - obj.discount_percentage / 100)
+        return obj.price
+       
 
     def get_category(self, obj):
         """ Fetch only active categories """
