@@ -45,13 +45,16 @@ class Product(models.Model):
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
-    offer_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     stock = models.PositiveIntegerField()
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     product_code = models.CharField(max_length=100, default=None, blank=True, null=True)  # No unique=True here
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
+    
+    def get_offer_price(self):
+        """Calculate offer price based on discount percentage."""
+        return self.price * (1 - self.discount_percentage / 100)
 
     def save(self, *args, **kwargs):
         if not self.product_code:

@@ -56,7 +56,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         
          # Calculate offer price for each product before pagination
         for product in products:
-            product.offer_price = calculate_offer_price(product.price, product.discount)
+            product.offer_price = calculate_offer_price(product.price, product.discount_percentage)
             product.save()
 
         # Paginate the queryset
