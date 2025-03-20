@@ -16,11 +16,7 @@ class ProductPagination(PageNumberPagination):
     page_size = 10  # Number of items per page (change as needed)
     page_size_query_param = 'page_size'  # Allows clients to set page size dynamically
     max_page_size = 100  # Prevents very large queries
-# Function to calculate offer price based on discount
-def calculate_offer_price(price, discount_percentage):
-    if discount_percentage:
-        return round(price - (price * discount_percentage / 100), 2)
-    return price
+
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -53,11 +49,6 @@ class ProductViewSet(viewsets.ModelViewSet):
     def list(self, request):
         """ Paginate and return products sorted alphabetically. """
         products = self.get_queryset()  # Get filtered and sorted queryset
-        
-         # Calculate offer price for each product before pagination
-        for product in products:
-            product.offer_price = calculate_offer_price(product.price, product.discount_percentage)
-            product.save()
 
         # Paginate the queryset
         paginator = ProductPagination()
@@ -94,29 +85,18 @@ class ProductViewSet(viewsets.ModelViewSet):
         """ Create a product and ensure its category is active """
         response = super().create(request, *args, **kwargs)  # Let DRF handle the creation
         product_id = response.data.get("product_id")  # Get the new product's ID
-        
+         # Ensure its category is active
         product = Product.objects.filter(product_id=product_id).first()
-        if product:
-             product.offer_price = calculate_offer_price(product.price, product.discount_percentage)
-             product.save()
-
-        # Ensure its category is active
-        if product.category:
+        if product and product.category:
             product.category.is_active = True
             product.category.save()
+           
+        return response    
 
-        return response
     
     def update(self, request, *args, **kwargs):
-        """ Update product and recalculate offer price. """
+        """ Update product  """
         response = super().update(request, *args, **kwargs)
-        product_id = response.data.get("product_id")
-
-        product = Product.objects.filter(product_id=product_id).first()
-        if product:
-            product.offer_price = calculate_offer_price(product.price, product.discount_percentage)  
-            product.save()
-
         return response
 
 

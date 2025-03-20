@@ -54,7 +54,9 @@ class Product(models.Model):
     
     def get_offer_price(self):
         """Calculate offer price based on discount percentage."""
-        return self.price * (1 - self.discount_percentage / 100)
+        if not self.discount_percentage:  # Handles None or 0 cases
+            return int(self.price)  # Return original price if no discount
+        return int(self.price - (self.price * self.discount_percentage / 100)) 
 
     def save(self, *args, **kwargs):
         if not self.product_code:
