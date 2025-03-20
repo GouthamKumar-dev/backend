@@ -95,8 +95,29 @@ class ProductSerializer(serializers.ModelSerializer):
         if category_data:
             category = self.handle_category(category_data)  # Call the category handling logic
 
-        product = Product.objects.create(category=category, **validated_data)
-        return product
+        product_code = validated_data.get("product_code", "").strip()
+
+        # 🔹 Check if a product with the same product_code already exists
+        existing_product = Product.objects.filter(product_code=product_code).first()
+
+        if existing_product:
+            if existing_product.is_active:
+                raise serializers.ValidationError(f"A product with product_code '{product_code}' already exists and is active.")
+            else:
+                # 🔹 Reactivate the inactive product
+                existing_product.is_active = True
+                existing_product.name = validated_data.get("name", existing_product.name)
+                existing_product.description = validated_data.get("description", existing_product.description)
+                existing_product.price = validated_data.get("price", existing_product.price)
+                existing_product.stock = validated_data.get("stock", existing_product.stock)
+                existing_product.category = category or existing_product.category  # Update category if provided
+                existing_product.save()
+                return existing_product  # Return the reactivated product
+
+        # 🔹 If no existing product, create a new one
+        validated_data["category"] = category
+        return Product.objects.create(**validated_data)
+
 
     def update(self, instance, validated_data):
         category_data = self.initial_data.get("category", None)
