@@ -272,7 +272,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return Response({
             "order_id": order.order_id,
-            "total_price":  sum(detail.product.get_offer_price() * detail.quantity for detail in  order_details),
+            "total_price":  sum(detail.product.offer_price * detail.quantity for detail in  order_details),
             "status": order.status,
             "shipping_address": order.shipping_address,
             "items": OrderDetailSerializer(order_details, context={"request": request}, many=True).data
