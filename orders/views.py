@@ -193,7 +193,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         if not shipping_address:
             return Response({"error": "Shipping address is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        total_price =sum(item.product.get_offer_price() * item.quantity for item in cart_items)
+        total_price =sum(item.product.offer_price * item.quantity for item in cart_items)
         client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
         try:
@@ -211,7 +211,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     order=order,
                     product=item.product,
                     quantity=item.quantity,
-                    price_at_purchase=item.product.get_offer_price()
+                    price_at_purchase=item.product.offer_price
                 )
 
             # Create a Razorpay Payment Link

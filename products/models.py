@@ -52,17 +52,16 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     
-    def get_offer_price(self):
-        """Calculate offer price based on discount percentage."""
-        if not self.discount_percentage:  # Handles None or 0 cases
-            return int(self.price)  # Return original price if no discount
-        return int(self.price - (self.price * self.discount_percentage / 100)) 
+    @property
+    def offer_price(self):
+        """Dynamically calculate offer price without storing in DB."""
+        if not self.discount_percentage:
+            return float(self.price)
+        return float(self.price - (self.price * self.discount_percentage / 100))
 
     def save(self, *args, **kwargs):
         if not self.product_code:
             self.product_code = f"PROD-{uuid.uuid4().hex[:8]}"  # Generate default product_code
-            
-        self.offer_price = round(self.price - (self.price * self.discount_percentage / 100), 2)
     
         super().save(*args, **kwargs)
 
