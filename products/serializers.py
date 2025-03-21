@@ -22,6 +22,8 @@ class ProductSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()  # Use SerializerMethodField for filtering
     favorite_count = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    offer_price = serializers.SerializerMethodField()  # Dynamically fetched
+
 
     class Meta:
         model = Product
@@ -31,6 +33,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "price",
+            "discount_percentage",  # NEW: Added discount percentage
+            "offer_price",
             "stock",
             "category",  # Now fetched with filtering
             "created_at",
@@ -39,6 +43,11 @@ class ProductSerializer(serializers.ModelSerializer):
             "favorite_count",
             "images",
         ]
+        
+    def get_offer_price(self, obj):
+        """Calculate offer price dynamically using discount_percentage."""
+        return obj.offer_price
+       
 
     def get_category(self, obj):
         """ Fetch only active categories """
@@ -59,7 +68,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return [img.image.url for img in images if img.image]  # Use relative URL if request is None
 
     def handle_category(self, category_data):
-        """Handles category logic: reuse, reactivate, or create a new one while checking category_code."""
+        """Handles category logic: reuse, reactivate, or create a new one."""
         name = category_data.get("name", "").strip()
         description = category_data.get("description", "").strip()
         category_code = category_data.get("category_code", "").strip()
@@ -91,11 +100,11 @@ class ProductSerializer(serializers.ModelSerializer):
         return Category.objects.create(name=name, description=description, category_code=category_code, is_active=True)
 
     def create(self, validated_data):
-        category_data = self.initial_data.get("category", None)
+        category_data = self.initial_data.get("category", None)  # Use initial_data to get nested dict
         category = None
 
         if category_data:
-            category = self.handle_category(category_data)
+            category = self.handle_category(category_data)  # Call the category handling logic
 
         product_code = validated_data.get("product_code", "").strip()
 
@@ -119,6 +128,7 @@ class ProductSerializer(serializers.ModelSerializer):
         # 🔹 If no existing product, create a new one
         validated_data["category"] = category
         return Product.objects.create(**validated_data)
+
 
     def update(self, instance, validated_data):
         category_data = self.initial_data.get("category", None)

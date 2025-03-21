@@ -17,6 +17,8 @@ class ProductPagination(PageNumberPagination):
     page_size_query_param = 'page_size'  # Allows clients to set page size dynamically
     max_page_size = 100  # Prevents very large queries
 
+
+
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -83,7 +85,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         """ Create a product and ensure its category is active """
         response = super().create(request, *args, **kwargs)  # Let DRF handle the creation
         product_id = response.data.get("product_id")  # Get the new product's ID
-        
+         # Ensure its category is active
         product = Product.objects.filter(product_id=product_id).first()
         if product and product.category:
             product.category.is_active = True
