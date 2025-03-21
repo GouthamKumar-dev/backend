@@ -90,15 +90,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         if product and product.category:
             product.category.is_active = True
             product.category.save()
-           
-        return response    
 
-    
-    def update(self, request, *args, **kwargs):
-        """ Update product  """
-        response = super().update(request, *args, **kwargs)
         return response
-
 
 
 class CategoryViewSet(viewsets.ModelViewSet):

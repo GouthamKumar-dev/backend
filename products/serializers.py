@@ -29,6 +29,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "product_id",
+            "product_code",  # Include product_code in the fields
             "name",
             "description",
             "price",
@@ -45,9 +46,7 @@ class ProductSerializer(serializers.ModelSerializer):
         
     def get_offer_price(self, obj):
         """Calculate offer price dynamically using discount_percentage."""
-        if obj.discount_percentage:  # Ensure discount exists
-            return obj.price * (1 - obj.discount_percentage / 100)
-        return obj.price
+        return obj.offer_price
        
 
     def get_category(self, obj):
@@ -72,21 +71,33 @@ class ProductSerializer(serializers.ModelSerializer):
         """Handles category logic: reuse, reactivate, or create a new one."""
         name = category_data.get("name", "").strip()
         description = category_data.get("description", "").strip()
+        category_code = category_data.get("category_code", "").strip()
 
-        # Check if an active category with the same name & description exists
-        existing_active_category = Category.objects.filter(name=name, description=description, is_active=True).first()
+        if not category_code:
+            raise serializers.ValidationError("Category code is required.")
+
+        # Check if an active category exists with the same category_code
+        existing_active_category = Category.objects.filter(category_code=category_code, is_active=True).first()
+
         if existing_active_category:
-            return existing_active_category  # Use existing active category
+            # Ensure name and description match; otherwise, return an error
+            if existing_active_category.name != name or existing_active_category.description != description:
+                raise serializers.ValidationError(f"Category code '{category_code}' already exists but with different details.")
+            return existing_active_category  # Use existing category
 
-        # Check if an inactive category with the same name & description exists
-        existing_inactive_category = Category.objects.filter(name=name, description=description, is_active=False).first()
+        # Check if an inactive category exists with the same category_code
+        existing_inactive_category = Category.objects.filter(category_code=category_code, is_active=False).first()
+
         if existing_inactive_category:
-            existing_inactive_category.is_active = True  # Reactivate category
+            # Update name, description, and reactivate
+            existing_inactive_category.name = name
+            existing_inactive_category.description = description
+            existing_inactive_category.is_active = True
             existing_inactive_category.save()
             return existing_inactive_category
 
         # Create a new category if none exists
-        return Category.objects.create(name=name, description=description, is_active=True)
+        return Category.objects.create(name=name, description=description, category_code=category_code, is_active=True)
 
     def create(self, validated_data):
         category_data = self.initial_data.get("category", None)  # Use initial_data to get nested dict
