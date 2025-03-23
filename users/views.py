@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework import status
 from ecommerce.logger import logger 
+from django.core.cache import cache
 from .utils import generate_otp, store_otp, send_otp_email, verify_otp
 
 class CustomRefreshToken(RefreshToken):
@@ -37,17 +38,27 @@ class SignupView(APIView):
     def post(self, request):
         serializer = CustomerSignupSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
+        
             otp = generate_otp()
-            store_otp(user.email, otp)
-            store_otp(user.phone_number, otp)
+            email = serializer.validated_data.get("email")
+            phone_number = serializer.validated_data.get("phone_number")
+
+            # Store OTP temporarily
+            store_otp(email, otp)
+            store_otp(phone_number, otp)
+
+            # Store user data temporarily (without saving to DB yet)
+            cache.set(f"pending_user_{email or phone_number}", serializer.validated_data, timeout=300)
 
             # Send OTP via Email & SMS
-            send_otp_email(user.email, otp)
-            # send_otp_sms(user.phone_number, otp)
+            send_otp_email(email, otp)
+            # send_otp_sms(phone_number, otp)
 
-            return Response({"message": "OTP sent to email"}, status=status.HTTP_201_CREATED)
+            return Response({"message": "OTP sent to email. Please verify to complete signup."}, 
+                            status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class LoginRequestOTPView(APIView):
     permission_classes = [AllowAny]
@@ -92,12 +103,48 @@ class VerifyOTPView(APIView):
                     }
 
                     return Response(response_data, status=status.HTTP_200_OK)
-                
+                # Retrieve stored user data and create the user after OTP verification
+                user_data = cache.get(f"pending_user_{identifier}")
+                if user_data:
+                    new_user_serializer = CustomerSignupSerializer(data=user_data)
+                    if new_user_serializer.is_valid():
+                        new_user = new_user_serializer.save()
+                        refresh = RefreshToken.for_user(new_user)
+                        response_data = {
+                            "user": UserSerializer(new_user).data,
+                            "refresh": str(refresh),
+                            "access": str(refresh.access_token),
+                        }
+                        return Response(response_data, status=status.HTTP_201_CREATED)
+                    return Response(new_user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                #----------
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
             return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ResendOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        identifier = request.data.get("identifier")
+        
+        if not identifier:
+            return Response({"error": "Identifier (email or phone) is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Generate new OTP
+        otp = generate_otp()
+        store_otp(identifier, otp)
+        
+        # Send OTP via Email & SMS
+        if "@" in identifier:
+            send_otp_email(identifier, otp)
+        else:
+            # send_otp_sms(identifier, otp)
+            pass
+        
+        return Response({"message": "New OTP sent."}, status=status.HTTP_200_OK)
 
 
 class ForgotPasswordRequestOTPView(APIView):

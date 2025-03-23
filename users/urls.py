@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView, CustomerLoginRequestOTPView
+from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView, CustomerLoginRequestOTPView,ResendOTPView
 from rest_framework_simplejwt.views import TokenVerifyView
 
 urlpatterns = [
@@ -10,6 +10,7 @@ urlpatterns = [
     path('signup/', SignupView.as_view(), name='signup'),
     path('login/', LoginRequestOTPView.as_view(), name='login_request_otp'),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify_otp'),
+    path('resend-otp/', ResendOTPView.as_view(), name='resend_otp'),
     path('forgot-password/', ForgotPasswordRequestOTPView.as_view(), name='forgot_password_request_otp'),
     path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
     # Customer-specific login with email & OTP
