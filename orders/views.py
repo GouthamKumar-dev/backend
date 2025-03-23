@@ -20,6 +20,7 @@ import json
 from ecommerce.logger import logger
 from django.db.models import F
 from django.core.mail import send_mail
+import time
 
 from rest_framework.pagination import PageNumberPagination
 
@@ -234,6 +235,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             return Response({
                 "order_id": order.order_id,
+                "payment_link_id" : payment_link["id"],
                 "payment_link": payment_link["short_url"]
             }, status=status.HTTP_201_CREATED)
 
@@ -253,15 +255,38 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "Order not found or inactive"}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            payment = client.payment.fetch(razorpay_payment_id)
+            # If payment ID is not provided, fetch the latest one using payment link
+            if not razorpay_payment_id:
+                payments_response = client.payment_link.fetch(razorpay_payment_link_id)
+                payments = payments_response.get("payments", [])
 
-            if payment["status"] == "captured":
-                order.status = "Processing"
-                order.razorpay_payment_id = razorpay_payment_id
-                order.save()
-                return Response({"message": "Payment verified successfully"}, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": "Payment not completed"}, status=status.HTTP_400_BAD_REQUEST)
+                if not payments:
+                    return Response({"error": "No payments found for this link"}, status=status.HTTP_400_BAD_REQUEST)
+
+                logger.info(f"payments:{payments[0]}")
+                razorpay_payment_id = payments[0]["payment_id"]  # Get the latest payment ID
+
+            # Poll Razorpay API up to 5 times to check payment status
+            for _ in range(5):
+                payment = client.payment.fetch(razorpay_payment_id)
+                logger.info(f"Payment status at the moment is {payment['status']} for payment id : {razorpay_payment_id}")
+
+                if payment["status"] == "captured":
+                    order.status = "Processing"
+                    order.razorpay_payment_id = razorpay_payment_id
+                    order.save()
+
+                    # Mark cart items as inactive
+                    CartItem.objects.filter(cart__user=order.user, is_active=True).update(is_active=False)
+
+                    return Response({"message": "Payment verified successfully"}, status=status.HTTP_200_OK)
+
+                elif payment["status"] in ["failed", "refunded"]:
+                    return Response({"error": f"Payment {payment['status']}"}, status=status.HTTP_400_BAD_REQUEST)
+
+                time.sleep(3)  # Wait 3 seconds before retrying
+
+            return Response({"error": "Payment still pending"}, status=status.HTTP_400_BAD_REQUEST)
 
         except razorpay.errors.BadRequestError:
             return Response({"error": "Invalid payment details"}, status=status.HTTP_400_BAD_REQUEST)
