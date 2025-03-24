@@ -79,6 +79,7 @@ class OTP(models.Model):
     identifier = models.CharField(max_length=255, unique=True)  # Phone or email
     otp_code = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
+    user_data = models.JSONField(null=True, blank=True)
 
     def is_expired(self):
         """Check if OTP is older than 5 minutes"""
