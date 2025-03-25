@@ -4,9 +4,6 @@ from django.conf import settings
 # from twilio.rest import Client
 from .models import OTP
 
-import smtplib
-from django.core.mail import send_mail
-
 
 def generate_otp():
     """Generate a 6-digit OTP."""
