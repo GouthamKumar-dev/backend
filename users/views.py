@@ -133,29 +133,6 @@ class VerifyOTPView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class ResendOTPView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        identifier = request.data.get("identifier")
-        
-        if not identifier:
-            return Response({"error": "Identifier (email or phone) is required."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Generate new OTP
-        otp = generate_otp()
-        store_otp(identifier, otp)
-        
-        # Send OTP via Email & SMS
-        if "@" in identifier:
-            send_otp_email(identifier, otp)
-        else:
-            # send_otp_sms(identifier, otp)
-            pass
-        
-        return Response({"message": "New OTP sent."}, status=status.HTTP_200_OK)
-
-
 class ForgotPasswordRequestOTPView(APIView):
     permission_classes = [AllowAny]
 
