@@ -33,9 +33,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECURE_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['tstocks.in']
 
 CSRF_TRUSTED_ORIGINS = [
     "https://tstocks.in"
@@ -129,7 +129,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', default='ecommerce_db'),
         'USER': os.getenv('DB_USER', default='ecommerce_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', default='user123'),
+        'PASSWORD': os.getenv('DB_PASSWORD', default='yourpassword'),
         'HOST': os.getenv('DB_HOST', default='127.0.0.1'),
         'PORT': os.getenv('DB_PORT', default='5432'),
     }
