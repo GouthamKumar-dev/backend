@@ -4,6 +4,7 @@ from django.conf import settings
 # from twilio.rest import Client
 from .models import OTP
 
+
 def generate_otp():
     """Generate a 6-digit OTP."""
     return str(random.randint(100000, 999999))

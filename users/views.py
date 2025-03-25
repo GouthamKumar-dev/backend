@@ -18,6 +18,8 @@ from django.contrib.auth import authenticate
 from rest_framework import status
 from ecommerce.logger import logger 
 from .utils import generate_otp, store_otp, send_otp_email, verify_otp
+from users.models import OTP
+from django.utils import timezone 
 
 class CustomRefreshToken(RefreshToken):
     @classmethod
@@ -37,17 +39,32 @@ class SignupView(APIView):
     def post(self, request):
         serializer = CustomerSignupSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
+        
             otp = generate_otp()
-            store_otp(user.email, otp)
-            store_otp(user.phone_number, otp)
+            email = serializer.validated_data.get("email")
+            phone_number = serializer.validated_data.get("phone_number")
+
+            identifier = email or phone_number
+
+            # Save OTP and user data temporarily in the OTP model
+            OTP.objects.update_or_create(
+                identifier=identifier,
+                defaults={
+                    "otp_code": otp,
+                    "user_data": serializer.validated_data,  # Temporarily store user data
+                    "created_at": timezone.now(),
+                },
+            )
 
             # Send OTP via Email & SMS
-            send_otp_email(user.email, otp)
-            # send_otp_sms(user.phone_number, otp)
+            send_otp_email(email, otp)
+            # send_otp_sms(phone_number, otp)
 
-            return Response({"message": "OTP sent to email"}, status=status.HTTP_201_CREATED)
+            return Response({"message": "OTP sent to email. Please verify to complete signup."}, 
+                            status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 class LoginRequestOTPView(APIView):
     permission_classes = [AllowAny]
@@ -78,27 +95,43 @@ class VerifyOTPView(APIView):
         if serializer.is_valid():
             identifier = serializer.validated_data["identifier"]
             otp = serializer.validated_data["otp"]
+            otp_entry = OTP.objects.filter(identifier=identifier).first()
 
-            if verify_otp(identifier, otp):
-                # Check if the user exists (either by email or phone)
+            if otp_entry and otp_entry.otp_code == otp and not otp_entry.is_expired():
+                # Check if user already exists
                 user = CustomUser.objects.filter(email=identifier).first() or CustomUser.objects.filter(phone_number=identifier).first()
-                
+
                 if user:
                     refresh = RefreshToken.for_user(user)
-                    response_data = {
+                    return Response({
                         "user": UserSerializer(user).data,
                         "refresh": str(refresh),
                         "access": str(refresh.access_token),
-                    }
+                    }, status=status.HTTP_200_OK)
 
-                    return Response(response_data, status=status.HTTP_200_OK)
-                
+                # Retrieve stored user data and create new user
+                if otp_entry.user_data:
+                    user_serializer = CustomerSignupSerializer(data=otp_entry.user_data)
+                    if user_serializer.is_valid():
+                        user = user_serializer.save()
+                        refresh = RefreshToken.for_user(user)
+
+                        # Delete OTP after successful verification
+                        otp_entry.delete()
+
+                        return Response({
+                            "user": UserSerializer(user).data,
+                            "refresh": str(refresh),
+                            "access": str(refresh.access_token),
+                        }, status=status.HTTP_201_CREATED)
+                    return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                #----------
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
             return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ForgotPasswordRequestOTPView(APIView):
     permission_classes = [AllowAny]
