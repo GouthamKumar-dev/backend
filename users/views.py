@@ -303,12 +303,29 @@ class CustomerLoginRequestOTPView(APIView):
         serializer = LoginWithEmailSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data["email"]
-            user = CustomUser.objects.filter(email=email, role=UserRole.CUSTOMER).first()
-            if user:
+
+            # Check if the user exists as a Customer
+            customer_user = CustomUser.objects.filter(email=email, role=UserRole.CUSTOMER).first()
+            
+            # Check if the user exists as an Admin or Staff
+            admin_or_staff_user = CustomUser.objects.filter(
+                email=email, role__in=[UserRole.ADMIN, UserRole.STAFF]
+            ).first()
+
+            if admin_or_staff_user:
+                return Response(
+                    {"error": "Admins and Staff members cannot log in using OTP."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            if customer_user:
                 otp = generate_otp()
-                store_otp(user.email, otp)
-                send_otp_email(user.email, otp)
+                store_otp(customer_user.email, otp)
+                send_otp_email(customer_user.email, otp)
                 return Response({"message": "OTP sent to email."}, status=status.HTTP_200_OK)
+
             return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
