@@ -224,9 +224,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     "name": user.username,
                     "email": user.email,
                     "contact": user.phone_number,  # Ensure phone number is available
-                },
-                "callback_url": "https://tstocks.in/api/orders/payment-webhook/",
-                "callback_method": "get"
+                }
             })
 
             # Save Razorpay payment link ID
