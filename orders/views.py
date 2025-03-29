@@ -10,7 +10,7 @@ from rest_framework.decorators import action, permission_classes, api_view
 from users.permissions import IsAdminOrStaff,IsAdminUser
 from users.serializers import UserSerializer
 from django.shortcuts import get_object_or_404
-from users.models import CustomUser
+from users.models import CustomUser, UserRole
 from django.http import JsonResponse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
@@ -178,7 +178,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put"]
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user).order_by("-created_at")
+        user = self.request.user
+        if user.role in [UserRole.ADMIN, UserRole.STAFF]:
+            return Order.objects.all().order_by("-created_at")  # Admins can see all orders
+        return Order.objects.filter(user=user).order_by("-created_at")  # Users see only their own orders
 
     @transaction.atomic
     def create(self, request):
