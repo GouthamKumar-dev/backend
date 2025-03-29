@@ -280,6 +280,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                     return Response({"message": "Payment verified successfully"}, status=status.HTTP_200_OK)
 
                 elif payment["status"] in ["failed", "refunded"]:
+                    order.status = "Failed"
+                    order.razorpay_payment_id = razorpay_payment_id
+                    order.save()
                     return Response({"error": f"Payment {payment['status']}"}, status=status.HTTP_400_BAD_REQUEST)
 
                 time.sleep(3)  # Wait 3 seconds before retrying
