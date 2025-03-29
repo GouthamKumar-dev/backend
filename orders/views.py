@@ -178,7 +178,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put"]
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user, is_active=True).order_by("-created_at")
+        return Order.objects.filter(user=self.request.user).order_by("-created_at")
 
     @transaction.atomic
     def create(self, request):
@@ -280,6 +280,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                     return Response({"message": "Payment verified successfully"}, status=status.HTTP_200_OK)
 
                 elif payment["status"] in ["failed", "refunded"]:
+                    order.status = "Failed"
+                    order.razorpay_payment_id = razorpay_payment_id
+                    order.save()
                     return Response({"error": f"Payment {payment['status']}"}, status=status.HTTP_400_BAD_REQUEST)
 
                 time.sleep(3)  # Wait 3 seconds before retrying
