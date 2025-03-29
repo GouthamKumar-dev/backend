@@ -178,7 +178,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put"]
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user, is_active=True).order_by("-created_at")
+        return Order.objects.filter(user=self.request.user).order_by("-created_at")
 
     @transaction.atomic
     def create(self, request):
