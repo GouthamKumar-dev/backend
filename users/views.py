@@ -72,9 +72,9 @@ class LoginRequestOTPView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            phone_number = serializer.validated_data["phone_number"]
+            email = serializer.validated_data["email"]
             password = serializer.validated_data["password"]
-            user = authenticate(phone_number=phone_number, password=password)
+            user = authenticate(email=email, password=password)
             if user:
                 otp = generate_otp()
                 store_otp(user.phone_number, otp)
@@ -137,8 +137,8 @@ class ForgotPasswordRequestOTPView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        phone_number = request.data.get("phone_number")
-        user = CustomUser.objects.filter(phone_number=phone_number).first()
+        email = request.data.get("email")
+        user = CustomUser.objects.filter(email=email).first()
 
         if not user:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -162,14 +162,14 @@ class ResetPasswordView(APIView):
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
         if serializer.is_valid():
-            phone_number = serializer.validated_data["phone_number"]
+            email = serializer.validated_data["email"]
             otp = serializer.validated_data["otp"]
             new_password = serializer.validated_data["new_password"]
 
-            if not verify_otp(phone_number, otp):
+            if not verify_otp(email, otp):
                 return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
-            user = CustomUser.objects.filter(phone_number=phone_number).first()
+            user = CustomUser.objects.filter(email=email).first()
 
             if not user:
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)

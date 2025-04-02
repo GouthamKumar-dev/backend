@@ -14,7 +14,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 # **Login Serializer**
 class LoginSerializer(serializers.Serializer):
-    phone_number = serializers.CharField()
+    email = serializers.CharField()
     password = serializers.CharField()
 
 class OTPVerifySerializer(serializers.Serializer):
@@ -22,7 +22,7 @@ class OTPVerifySerializer(serializers.Serializer):
     otp = serializers.CharField()
 
 class ResetPasswordSerializer(serializers.Serializer):
-    phone_number = serializers.CharField()
+    email = serializers.CharField()
     otp = serializers.CharField()
     new_password = serializers.CharField(write_only=True)
 
