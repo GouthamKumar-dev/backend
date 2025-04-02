@@ -54,9 +54,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.CharField(max_length=100, blank=True, null=True)
 
-    # Use phone_number as the unique identifier
-    USERNAME_FIELD = 'phone_number'
-    REQUIRED_FIELDS = ['username', 'email']  # These fields will still be required during user creation
+    # Use email as the unique identifier
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username', 'phone_number']  # These fields will still be required during user creation
 
     objects = CustomUserManager()
 
