@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView, CustomerLoginRequestOTPView
+from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView, CustomerLoginRequestOTPView,  AdminNotificationListView 
 from rest_framework_simplejwt.views import TokenVerifyView
 
 urlpatterns = [
@@ -22,5 +22,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('admin/list/', AdminUserListView.as_view(), name='admin-users-list'),
     path('me/update-shipping/', UpdateShippingAddressView.as_view(), name='update-shipping'),
+    path('admin/notifications/', AdminNotificationListView.as_view(), name='admin-notifications-list'),
 ]
+
 
