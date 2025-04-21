@@ -178,10 +178,7 @@ class CartViewSet(viewsets.ModelViewSet):
         cart_item.is_active = False
         cart_item.save()
         #  Notify Admin on manual delete
-        # create_admin_notification(
-        #     title="Cart Item Removed",
-        #     message=f"{request.user.username} removed {cart_item.product.name} from their cart."
-        # )
+       
 
 
         # Return success response
@@ -252,7 +249,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             # ✅ Notify admin about new order
             create_admin_notification(
                 user=request.user,
-                message=f"New order placed: {order.order_id} (Total: ₹{order.total_amount})"
+                message=f"New order placed: {order.order_id} (Total: ₹{order.total_amount})",
+                event_type="order_created"
             )
 
             return Response({
@@ -347,7 +345,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             # ✅ Notify admin about cancellation
             create_admin_notification(
                 user=order.user,
-                message=f"Order {order.order_id} was cancelled."
+                message=f"Order {order.order_id} was cancelled.",
+                event_type="order_cancelled"
+                
             )
 
             # **Send email only if the previous status was "Processing"**
@@ -383,7 +383,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         # ✅ Notify admin about status update
         create_admin_notification(
             user=order.user,
-            message=f"Order {order.order_id} status updated to '{new_status}'."
+            message=f"Order {order.order_id} status updated to '{new_status}'.",
+            event_type="order_status_update"
         )
         return Response(OrderSerializer(order, context={"request": request}).data)
 
