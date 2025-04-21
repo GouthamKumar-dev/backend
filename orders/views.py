@@ -117,11 +117,11 @@ class CartViewSet(viewsets.ModelViewSet):
             else:
                 # Create new cart item
                 CartItem.objects.create(cart=cart, product=product, quantity=quantity, is_active=True)
-            #  Notify Admin
-            create_admin_notification(
-                title="Item Added to Cart",
-                message=f"{user.username} added {quantity} x {product.name} to cart."
-            )
+            # #  Notify Admin
+            # create_admin_notification(
+            #     title="Item Added to Cart",
+            #     message=f"{user.username} added {quantity} x {product.name} to cart."
+            # )
         return Response(CartSerializer(cart,context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
@@ -157,10 +157,10 @@ class CartViewSet(viewsets.ModelViewSet):
         cart_item.quantity = quantity
         cart_item.save()
          #  Notify Admin on quantity update
-        create_admin_notification(
-            title="Cart Item Quantity Updated",
-            message=f"{request.user.username} updated {cart_item.product.name} quantity to {quantity} in their cart."
-        )
+        # create_admin_notification(
+        #     title="Cart Item Quantity Updated",
+        #     message=f"{request.user.username} updated {cart_item.product.name} quantity to {quantity} in their cart."
+        # )
 
         return Response(CartItemSerializer(cart_item,context={'request': request}).data, status=status.HTTP_200_OK)
 
@@ -178,10 +178,10 @@ class CartViewSet(viewsets.ModelViewSet):
         cart_item.is_active = False
         cart_item.save()
         #  Notify Admin on manual delete
-        create_admin_notification(
-            title="Cart Item Removed",
-            message=f"{request.user.username} removed {cart_item.product.name} from their cart."
-        )
+        # create_admin_notification(
+        #     title="Cart Item Removed",
+        #     message=f"{request.user.username} removed {cart_item.product.name} from their cart."
+        # )
 
 
         # Return success response
