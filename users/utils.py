@@ -47,8 +47,9 @@ def notify_admins(title, message):
 #     )
 #     return message.sid
 
-def create_admin_notification(user, message, event_type=None):
+def create_admin_notification(user,title, message, event_type=None):
     AdminNotification.objects.create(
+        title=title,
         user=user,
         message=message,
         event_type=event_type
