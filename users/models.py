@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.db import models
 from django.utils import timezone
 import datetime
+from django.conf import settings
 
 class UserRole(models.TextChoices):
     CUSTOMER = 'customer', 'Customer'
@@ -87,6 +88,12 @@ class OTP(models.Model):
     
     #notification for admin
 class AdminNotification(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,  # Optional: allow null if not always set
+        blank=True
+    )
     title = models.CharField(max_length=255)
     message = models.TextField()
     event_type = models.CharField(max_length=255)

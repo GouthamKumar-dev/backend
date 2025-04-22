@@ -120,7 +120,9 @@ class CartViewSet(viewsets.ModelViewSet):
             # #  Notify Admin
             # create_admin_notification(
             #     title="Item Added to Cart",
-            #     message=f"{user.username} added {quantity} x {product.name} to cart."
+            #     user = request.user,
+            #     message=f"{user.username} added {quantity} x {product.name} to cart.",
+            #     event_type="cart item_created"
             # )
         return Response(CartSerializer(cart,context={'request': request}).data, status=status.HTTP_201_CREATED)
 
@@ -248,6 +250,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             
             # ✅ Notify admin about new order
             create_admin_notification(
+                title="order_creation",
                 user=request.user,
                 message=f"New order placed: {order.order_id} (Total: ₹{order.total_amount})",
                 event_type="order_created"
@@ -344,6 +347,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.save()
             # ✅ Notify admin about cancellation
             create_admin_notification(
+                title="order_cancelation",
                 user=order.user,
                 message=f"Order {order.order_id} was cancelled.",
                 event_type="order_cancelled"
@@ -382,6 +386,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.save()
         # ✅ Notify admin about status update
         create_admin_notification(
+            title="order_status",
             user=order.user,
             message=f"Order {order.order_id} status updated to '{new_status}'.",
             event_type="order_status_update"
