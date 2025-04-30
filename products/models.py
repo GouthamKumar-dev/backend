@@ -97,6 +97,10 @@ def upload_to(instance, filename):
     return f'uploads/{filename}'  # Store images in the 'media/uploads/' folder
 
 class UploadedImage(models.Model):
+    IMAGE_TYPE_CHOICES = [
+        ('normal', 'Normal'),
+        ('carousel', 'Carousel'),
+    ]
 
     class Meta:
         db_table = 'images'
@@ -105,9 +109,10 @@ class UploadedImage(models.Model):
     product = models.ForeignKey('Product', null=True, blank=True, on_delete=models.CASCADE)
     category = models.ForeignKey('Category', null=True, blank=True, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    type = models.CharField(max_length=20, choices=IMAGE_TYPE_CHOICES, default='normal')  # <<< type = 'normal' or 'carousel'
 
     def __str__(self):
-        return f"Image for {self.product or self.category}"
+        return f"Image ({self.type}) for {self.product or self.category}"
 
     def get_image_url(self):
         """ Return the full URL for the stored image """

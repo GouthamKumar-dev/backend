@@ -9,14 +9,21 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_images(self, obj):
-        """ Fetch all image URLs related to this category or product """
+        """Fetch all image URLs related to this category or product, including their type."""
         request = self.context.get("request")
-        # Check if the object is Category or Product and fetch associated images accordingly
         images = UploadedImage.objects.filter(category=obj) if isinstance(obj, Category) else UploadedImage.objects.filter(product=obj)
 
-        if request:
-            return [request.build_absolute_uri(img.image.url) for img in images if img.image]
-        return [img.image.url for img in images if img.image]  # Use relative URL if request is None
+        result = []
+        for img in images:
+            if img.image:
+                image_url = request.build_absolute_uri(img.image.url) if request else img.image.url
+                result.append({
+                    "url": image_url,
+                    "type": img.type  # 'normal' or 'carousel'
+                })
+
+        return result
+
 
 class ProductSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()  # Use SerializerMethodField for filtering
@@ -59,13 +66,20 @@ class ProductSerializer(serializers.ModelSerializer):
         return obj.favorite_count()
 
     def get_images(self, obj):
-        """ Fetch all image URLs related to this product """
         request = self.context.get("request")
         images = UploadedImage.objects.filter(product=obj)
 
-        if request:
-            return [request.build_absolute_uri(img.image.url) for img in images if img.image]
-        return [img.image.url for img in images if img.image]  # Use relative URL if request is None
+        result = []
+        for img in images:
+            if img.image:
+                image_url = request.build_absolute_uri(img.image.url) if request else img.image.url
+                result.append({
+                    "url": image_url,
+                    "type": img.type  # normal or carousel
+                })
+
+        return result
+
 
     def handle_category(self, category_data):
         """Handles category logic: reuse, reactivate, or create a new one."""
