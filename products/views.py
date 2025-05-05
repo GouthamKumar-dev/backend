@@ -293,24 +293,33 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Filters images based on 'type' query param.
-        Example: /api/products/images/?type=product or ?type=category
+        Filters images based on two query params:
+        - relation_type: product/category relation (e.g., /?relation_type=product)
+        - image_type: specific image type field (e.g., /?image_type=banner, thumbnail, etc.)
         """
         queryset = UploadedImage.objects.all()
-        image_type = self.request.query_params.get('type', None)  # Get query param
+        relation_type = self.request.query_params.get('relation_type', None)
+        image_type = self.request.query_params.get('image_type', None)
 
-        if image_type == 'product':
-            queryset = queryset.filter(product__isnull=False)  # Filter images related to products
-        elif image_type == 'category':
-            queryset = queryset.filter(category__isnull=False)  # Filter images related to categories
+        # Filter by relation (product/category)
+        if relation_type == 'product':
+            queryset = queryset.filter(product__isnull=False)
+        elif relation_type == 'category':
+            queryset = queryset.filter(category__isnull=False)
+
+        # Further filter by image type
+        if image_type:
+            queryset = queryset.filter(type=image_type)
 
         return queryset
 
+
     def create(self, request, *args, **kwargs):
-        """ Handle image upload with product/category validation """
+        """ Handle image upload with type and product/category validation """
         file = request.FILES.get('image')
         product_id = request.data.get("product")
         category_id = request.data.get("category")
+        image_type = request.data.get("type")  # New: type field from request
 
         # Ensure an image is provided
         if not file:
@@ -319,6 +328,10 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         # Validate file type (only PNG)
         if not file.name.lower().endswith('.png'):
             return Response({"error": "Only PNG images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate type field
+        if image_type not in ['normal', 'carousel']:
+            return Response({"error": "Invalid image type. Must be 'normal' or 'carousel'."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Ensure only one foreign key is set
         if product_id and category_id:
@@ -344,17 +357,23 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         if not product and not category:
             return Response({"error": "Either a valid product or category must be provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Save the image with the valid product/category
-        uploaded_image = UploadedImage.objects.create(image=file, product=product, category=category)
+        # Save the image with the valid product/category and type
+        uploaded_image = UploadedImage.objects.create(
+            image=file,
+            product=product,
+            category=category,
+            type=image_type  # Save the type
+        )
         serializer = self.get_serializer(uploaded_image)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
-        """ Updates an image file and ensures only one foreign key (Product or Category) is set. """
+        """ Updates an image file, type, and ensures only one foreign key (Product or Category) is set. """
         instance = self.get_object()
         product_id = request.data.get("product")
         category_id = request.data.get("category")
-        new_image = request.FILES.get("image")  # Get new image file
+        new_image = request.FILES.get("image")
+        new_type = request.data.get("type")  # New: type field
 
         # Handle foreign key updates
         if product_id:
@@ -372,6 +391,12 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
                 return Response({"error": "Category does not exist or is inactive."}, status=status.HTTP_400_BAD_REQUEST)
             instance.category = category
             instance.product = None  # Unlink product
+
+        # Update the type if provided
+        if new_type:
+            if new_type not in ['normal', 'carousel']:
+                return Response({"error": "Invalid image type. Must be 'normal' or 'carousel'."}, status=status.HTTP_400_BAD_REQUEST)
+            instance.type = new_type
 
         # Replace existing image if a new one is provided
         if new_image:
