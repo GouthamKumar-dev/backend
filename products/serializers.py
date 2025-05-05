@@ -174,7 +174,7 @@ class UploadedImageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UploadedImage
-        fields = ['id','image', 'product', 'category', 'uploaded_at']
+        fields = ['id','image', 'product','type', 'category', 'uploaded_at']
 
     def get_image_url(self, obj):
         """ Generate a URL for the stored image """
