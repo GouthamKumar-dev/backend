@@ -28,16 +28,23 @@ from .serializers import AdminNotificationSerializer
 
 class AdminNotificationListView(APIView):
     permission_classes = [IsAdminUser]
+
     def get(self, request):
         """
-        Retrieve only unread notifications.
+        Retrieve only unread notifications and mark them as read.
         """
-        # Only show unread notifications
-        notifications = AdminNotification.objects.filter(is_read=False)
-        
-        # Serialize the notifications
-        serializer = AdminNotificationSerializer(notifications, many=True)
+        # Fetch unread notifications into a list (forces evaluation)
+        unread_notifications = list(AdminNotification.objects.filter(is_read=False))
+
+        # Serialize the data
+        serializer = AdminNotificationSerializer(unread_notifications, many=True)
+
+        # Get IDs and mark them as read
+        notification_ids = [n.id for n in unread_notifications]
+        AdminNotification.objects.filter(id__in=notification_ids).update(is_read=True)
+
         return Response(serializer.data)
+
 
 class CustomRefreshToken(RefreshToken):
     @classmethod

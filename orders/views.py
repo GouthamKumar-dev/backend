@@ -252,7 +252,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             create_admin_notification(
                 title="order_creation",
                 user=request.user,
-                message=f"New order placed: {order.order_id} (Total: ₹{order.total_amount})",
+                message=f"New order placed: {order.order_id} (Total: ₹{total_price})",
                 event_type="order_created"
             )
 
