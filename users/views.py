@@ -20,6 +20,30 @@ from ecommerce.logger import logger
 from .utils import generate_otp, store_otp, send_otp_email, verify_otp
 from users.models import OTP
 from django.utils import timezone 
+from users.utils import notify_admins
+from .models import AdminNotification
+from .serializers import AdminNotificationSerializer
+
+
+class AdminNotificationListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        """
+        Retrieve only unread notifications and mark them as read.
+        """
+        # Fetch unread notifications into a list (forces evaluation)
+        unread_notifications = list(AdminNotification.objects.filter(is_read=False))
+
+        # Serialize the data
+        serializer = AdminNotificationSerializer(unread_notifications, many=True)
+
+        # Get IDs and mark them as read
+        notification_ids = [n.id for n in unread_notifications]
+        AdminNotification.objects.filter(id__in=notification_ids).update(is_read=True)
+
+        return Response(serializer.data)
+
 
 class CustomRefreshToken(RefreshToken):
     @classmethod
@@ -59,6 +83,9 @@ class SignupView(APIView):
             # Send OTP via Email & SMS
             send_otp_email(email, otp)
             # send_otp_sms(phone_number, otp)
+            
+            # Notify admins about new user signup
+            notify_admins("New user signup", f"A new user has signed up with email: {email}")
 
             return Response({"message": "OTP sent to email. Please verify to complete signup."}, 
                             status=status.HTTP_201_CREATED)
@@ -180,6 +207,8 @@ class ResetPasswordView(APIView):
 
             user.set_password(new_password)
             user.save()
+             # Notify admins about password reset
+            notify_admins("Password reset", f"The password for user {user.email} has been reset.")
 
             return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
 
@@ -292,6 +321,8 @@ class UpdateShippingAddressView(APIView):
 
         user.default_shipping_address = new_address
         user.save()
+         # Notify admins about address change
+        notify_admins("User address update", f"The address for user {user.email} has been updated.")
 
         return Response({"message": "Shipping address updated successfully", "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
 

@@ -21,7 +21,7 @@ from ecommerce.logger import logger
 from django.db.models import F
 from django.core.mail import send_mail
 import time
-
+from users.utils import create_admin_notification
 from rest_framework.pagination import PageNumberPagination
 
 from razorpay.errors import BadRequestError, ServerError
@@ -117,7 +117,6 @@ class CartViewSet(viewsets.ModelViewSet):
             else:
                 # Create new cart item
                 CartItem.objects.create(cart=cart, product=product, quantity=quantity, is_active=True)
-
         return Response(CartSerializer(cart,context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
@@ -168,6 +167,9 @@ class CartViewSet(viewsets.ModelViewSet):
         # Set the is_active flag to False for soft delete
         cart_item.is_active = False
         cart_item.save()
+        #  Notify Admin on manual delete
+       
+
 
         # Return success response
         return Response({"message": "Cart item marked as inactive"}, status=status.HTTP_204_NO_CONTENT)
@@ -233,6 +235,14 @@ class OrderViewSet(viewsets.ModelViewSet):
             # Save Razorpay payment link ID
             order.razorpay_payment_link_id = payment_link["id"]
             order.save()
+            
+            # ✅ Notify admin about new order
+            create_admin_notification(
+                title="order_creation",
+                user=request.user,
+                message=f"New order placed: {order.order_id} (Total: ₹{total_price})",
+                event_type="order_created"
+            )
 
             return Response({
                 "order_id": order.order_id,
@@ -323,6 +333,14 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.status = "Cancelled"
             order.is_active = False
             order.save()
+            # ✅ Notify admin about cancellation
+            create_admin_notification(
+                title="order_cancelation",
+                user=order.user,
+                message=f"Order {order.order_id} was cancelled.",
+                event_type="order_cancelled"
+                
+            )
 
             # **Send email only if the previous status was "Processing"**
             if previous_status == "Processing":
@@ -354,6 +372,13 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "Invalid status update"}, status=status.HTTP_400_BAD_REQUEST)
 
         order.save()
+        # ✅ Notify admin about status update
+        create_admin_notification(
+            title="order_status",
+            user=order.user,
+            message=f"Order {order.order_id} status updated to '{new_status}'.",
+            event_type="order_status_update"
+        )
         return Response(OrderSerializer(order, context={"request": request}).data)
 
 

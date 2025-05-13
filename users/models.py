@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.db import models
 from django.utils import timezone
 import datetime
+from django.conf import settings
 
 class UserRole(models.TextChoices):
     CUSTOMER = 'customer', 'Customer'
@@ -84,5 +85,25 @@ class OTP(models.Model):
     def is_expired(self):
         """Check if OTP is older than 5 minutes"""
         return timezone.now() > self.created_at + datetime.timedelta(minutes=5)
+    
+    #notification for admin
+class AdminNotification(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,  # Optional: allow null if not always set
+        blank=True
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    event_type = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    
+    class Meta:
+        db_table = 'users_adminnotification' 
+
+    def __str__(self):
+        return f"{self.title} - {self.created_at}"
 
 

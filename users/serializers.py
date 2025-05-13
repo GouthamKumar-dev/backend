@@ -6,6 +6,7 @@ from rest_framework import serializers
 from .models import CustomUser,UserRole
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
+from .models import AdminNotification
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -107,4 +108,9 @@ class CustomerSignupSerializer(serializers.ModelSerializer):
         user = CustomUser.objects.create(**validated_data)
         return user
 
+#admin notification
+class AdminNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminNotification
+        fields = '__all__'
 

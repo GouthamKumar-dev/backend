@@ -3,6 +3,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 # from twilio.rest import Client
 from .models import OTP
+from .models import AdminNotification
 
 
 def generate_otp():
@@ -31,6 +32,10 @@ def send_otp_email(email, otp):
     subject = "Your OTP Code to login to T-Stocks"
     message = f"Your OTP code is: {otp}. It expires in 5 minutes."
     send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+    
+#admin notification
+def notify_admins(title, message):
+    AdminNotification.objects.create(title=title, message=message)
 
 # def send_otp_sms(phone_number, otp):
 #     """Send OTP via SMS using Twilio."""
@@ -41,3 +46,11 @@ def send_otp_email(email, otp):
 #         to=phone_number
 #     )
 #     return message.sid
+
+def create_admin_notification(user,title, message, event_type=None):
+    AdminNotification.objects.create(
+        title=title,
+        user=user,
+        message=message,
+        event_type=event_type
+    )  
