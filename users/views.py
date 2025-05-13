@@ -23,7 +23,6 @@ from django.utils import timezone
 from users.utils import notify_admins
 from .models import AdminNotification
 from .serializers import AdminNotificationSerializer
-#from users.utils import create_admin_notification
 
 
 class AdminNotificationListView(APIView):
@@ -87,12 +86,6 @@ class SignupView(APIView):
             
             # Notify admins about new user signup
             notify_admins("New user signup", f"A new user has signed up with email: {email}")
-            # create_admin_notification(
-            #     user=None,
-            #     message=f"A new user has signed up with email: {email}",
-            #     event_type="user_signup",
-                
-            # )
 
             return Response({"message": "OTP sent to email. Please verify to complete signup."}, 
                             status=status.HTTP_201_CREATED)
@@ -216,12 +209,6 @@ class ResetPasswordView(APIView):
             user.save()
              # Notify admins about password reset
             notify_admins("Password reset", f"The password for user {user.email} has been reset.")
-            # create_admin_notification(
-            #     user=None,
-            #     message=f"The password for user {user.email} has been reset.",
-            #     event_type="passwordreset"
-                
-            # )
 
             return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
 
@@ -336,12 +323,6 @@ class UpdateShippingAddressView(APIView):
         user.save()
          # Notify admins about address change
         notify_admins("User address update", f"The address for user {user.email} has been updated.")
-        # create_admin_notification(
-        #     user=None,
-        #     message=f"The address for user {user.email} has been updated.",
-        #     event_type="updated_shippingaddress"
-            
-        # )
 
         return Response({"message": "Shipping address updated successfully", "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
 
