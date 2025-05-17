@@ -18,6 +18,7 @@ class CategorySerializer(serializers.ModelSerializer):
             if img.image:
                 image_url = request.build_absolute_uri(img.image.url) if request else img.image.url
                 result.append({
+                    "id": img.id,
                     "url": image_url,
                     "type": img.type  # 'normal' or 'carousel'
                 })
@@ -74,6 +75,7 @@ class ProductSerializer(serializers.ModelSerializer):
             if img.image:
                 image_url = request.build_absolute_uri(img.image.url) if request else img.image.url
                 result.append({
+                    "id": img.id,
                     "url": image_url,
                     "type": img.type  # normal or carousel
                 })

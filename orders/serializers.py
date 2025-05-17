@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from .models import Order, OrderDetail, CartItem, Cart
 from products.serializers import ProductSerializer
+from users.serializers import UserSerializer
 
 # serializers.py
 
@@ -18,6 +19,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True) 
     order_details = OrderDetailSerializer(many=True, read_only=True)
     tracking_id = serializers.ReadOnlyField()
 
