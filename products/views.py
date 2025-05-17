@@ -356,6 +356,11 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         if product_id and category_id:
             return Response({"error": "Cannot link image to both product and category."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # 🔸 Must provide one of product or category
+        if not product_id and not category_id:
+            return Response({"error": "Either product or category ID must be provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 🔸 Validate product or category
         product, category = None, None
         if product_id:
             try:
@@ -368,6 +373,20 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
             except ObjectDoesNotExist:
                 return Response({"error": "Invalid category."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # 🔸 Validate PNG format
+        def validate_png(file):
+            if not file.name.lower().endswith('.png'):
+                raise ValueError(f"Only PNG images are allowed. '{file.name}' is not valid.")
+
+        try:
+            if normal_image:
+                validate_png(normal_image)
+            if carousel_image:
+                validate_png(carousel_image)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 🔸 Handle upload
         created_images = []
         try:
             if normal_image:
@@ -379,6 +398,7 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(created_images, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
     def update(self, request, *args, **kwargs):
         """ Updates an image file, type, and ensures only one foreign key (Product or Category) is set. """
