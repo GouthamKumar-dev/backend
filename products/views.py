@@ -313,58 +313,71 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    def handle_image_upload(self,image_file, img_type, product=None, category=None, existing_instance=None):
+        """
+        Creates or updates an UploadedImage instance based on whether `existing_instance` is provided.
+        Replaces image file if updating, validates PNG type and sets correct associations.
+        """
+        if not image_file.name.lower().endswith('.png'):
+            raise ValueError(f"Only PNG images are allowed for {img_type} image.")
+
+        if existing_instance:
+            # Replacing an existing image
+            if existing_instance.image:
+                old_path = existing_instance.image.path
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            existing_instance.image = image_file
+            existing_instance.type = img_type
+            existing_instance.product = product
+            existing_instance.category = category
+            existing_instance.save()
+            return existing_instance
+        else:
+            # Creating a new image
+            return UploadedImage.objects.create(
+                image=image_file,
+                product=product,
+                category=category,
+                type=img_type
+            )
+
+
 
     def create(self, request, *args, **kwargs):
-        """ Handle image upload with type and product/category validation """
-        file = request.FILES.get('image')
+        normal_image = request.FILES.get('normal_image')
+        carousel_image = request.FILES.get('carousel_image')
         product_id = request.data.get("product")
         category_id = request.data.get("category")
-        image_type = request.data.get("type")  # New: type field from request
 
-        # Ensure an image is provided
-        if not file:
+        if not normal_image and not carousel_image:
             return Response({"error": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate file type (only PNG)
-        if not file.name.lower().endswith('.png'):
-            return Response({"error": "Only PNG images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Validate type field
-        if image_type not in ['normal', 'carousel']:
-            return Response({"error": "Invalid image type. Must be 'normal' or 'carousel'."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Ensure only one foreign key is set
         if product_id and category_id:
-            return Response({"error": "An image cannot be linked to both a product and a category."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Cannot link image to both product and category."}, status=status.HTTP_400_BAD_REQUEST)
 
         product, category = None, None
-
-        # Validate product existence and active status
         if product_id:
             try:
                 product = Product.objects.get(pk=product_id, is_active=True)
             except ObjectDoesNotExist:
-                return Response({"error": "Product does not exist or is inactive."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Validate category existence and active status
+                return Response({"error": "Invalid product."}, status=status.HTTP_400_BAD_REQUEST)
         elif category_id:
             try:
                 category = Category.objects.get(pk=category_id, is_active=True)
             except ObjectDoesNotExist:
-                return Response({"error": "Category does not exist or is inactive."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Invalid category."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # If neither a valid product nor category is found, reject the request
-        if not product and not category:
-            return Response({"error": "Either a valid product or category must be provided."}, status=status.HTTP_400_BAD_REQUEST)
+        created_images = []
+        try:
+            if normal_image:
+                created_images.append(self.handle_image_upload(normal_image, 'normal', product, category))
+            if carousel_image:
+                created_images.append(self.handle_image_upload(carousel_image, 'carousel', product, category))
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Save the image with the valid product/category and type
-        uploaded_image = UploadedImage.objects.create(
-            image=file,
-            product=product,
-            category=category,
-            type=image_type  # Save the type
-        )
-        serializer = self.get_serializer(uploaded_image)
+        serializer = self.get_serializer(created_images, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
