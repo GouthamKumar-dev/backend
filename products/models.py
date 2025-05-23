@@ -88,11 +88,11 @@ class Favorite(models.Model):
 
 def upload_to(instance, filename):
     """
-    Function to upload only PNG files to the media/uploads/ folder.
+    Function to upload only PNG, JPG, or JPEG files to the media/uploads/ folder.
     """
     base, extension = os.path.splitext(filename)
-    if extension.lower() != ".png":
-        raise ValueError("Only PNG images are allowed.")  # Restrict uploads to PNG only
+    if extension.lower() not in [".png", ".jpg", ".jpeg"]:
+        raise ValueError("Only PNG, JPG, or JPEG images are allowed.")  # Restrict uploads
 
     return f'uploads/{filename}'  # Store images in the 'media/uploads/' folder
 

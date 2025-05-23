@@ -318,8 +318,9 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         Creates or updates an UploadedImage instance based on whether `existing_instance` is provided.
         Replaces image file if updating, validates PNG type and sets correct associations.
         """
-        if not image_file.name.lower().endswith('.png'):
-            raise ValueError(f"Only PNG images are allowed for {img_type} image.")
+        valid_extensions = ('.png', '.jpg', '.jpeg')
+        if not image_file.name.lower().endswith(valid_extensions):
+            raise ValueError(f"Only PNG, JPG, or JPEG images are allowed for {img_type} image.")
 
         if existing_instance:
             # Replacing an existing image
@@ -373,16 +374,17 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
             except ObjectDoesNotExist:
                 return Response({"error": "Invalid category."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 🔸 Validate PNG format
-        def validate_png(file):
-            if not file.name.lower().endswith('.png'):
-                raise ValueError(f"Only PNG images are allowed. '{file.name}' is not valid.")
+        # 🔸 Validate image format
+        def validate_image_format(file):
+            valid_extensions = ('.png', '.jpg', '.jpeg')
+            if not file.name.lower().endswith(valid_extensions):
+                raise ValueError(f"Only PNG, JPG, or JPEG images are allowed. '{file.name}' is not valid.")
 
         try:
             if normal_image:
-                validate_png(normal_image)
+                validate_image_format(normal_image)
             if carousel_image:
-                validate_png(carousel_image)
+                validate_image_format(carousel_image)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
