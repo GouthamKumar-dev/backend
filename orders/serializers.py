@@ -25,7 +25,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ['order_id', 'user', 'total_price', 'shipping_address', 'status', 'tracking_id', 'created_at', 'order_details','is_active']
+        fields = ['order_id', 'user', 'total_price', 'shipping_address', 'status', 'tracking_id', 'created_at', 'order_details','is_active','updated_at']
 
     def get_order_details(self, obj):
         active_order_details = obj.order_details.filter(is_active=True)  # Filter only active details
