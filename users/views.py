@@ -24,24 +24,6 @@ from .utils import create_admin_notification
 from .models import AdminNotification
 from .serializers import AdminNotificationSerializer
 
-
-class AdminNotificationListView(APIView):
-    permission_classes = [IsAdminUser]
-
-    def get(self, request):
-        """
-        Retrieve all admin notifications and mark only unread ones as read.
-        """
-        notifications = AdminNotification.objects.all().order_by("-created_at")
-        serializer = AdminNotificationSerializer(notifications, many=True)
-
-        # Mark only unread notifications as read
-        unread_ids = [n.id for n in notifications if not n.is_read]
-        AdminNotification.objects.filter(id__in=unread_ids).update(is_read=True)
-
-        return Response(serializer.data)
-
-
 class CustomRefreshToken(RefreshToken):
     @classmethod
     def for_user(cls, user):
@@ -53,6 +35,27 @@ class UserPagination(PageNumberPagination):
     page_size = 10  # Number of items per page (change as needed)
     page_size_query_param = 'page_size'  # Allows clients to set page size dynamically
     max_page_size = 100  # Prevents very large queries
+
+
+class AdminNotificationListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        """
+        Retrieve all admin notifications (paginated) and mark only unread ones as read.
+        """
+        notifications = AdminNotification.objects.all().order_by("-created_at")
+
+        # Use existing pagination class
+        paginator = UserPagination()
+        paginated_notifications = paginator.paginate_queryset(notifications, request)
+
+        # Mark only unread ones in this page as read
+        unread_ids = [n.id for n in paginated_notifications if not n.is_read]
+        AdminNotification.objects.filter(id__in=unread_ids).update(is_read=True)
+
+        serializer = AdminNotificationSerializer(paginated_notifications, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 class SignupView(APIView):
     permission_classes = [AllowAny]
