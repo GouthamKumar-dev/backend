@@ -38,7 +38,7 @@ DEBUG = False
 ALLOWED_HOSTS = ['tstocks.in']
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://tstocks.in"
+    "https://tstocks.in","https://www.tstocks.in"
 ]
 # Application definition
 
@@ -69,7 +69,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5173",
+        "http://localhost:5173","https://www.tstocks.in"
 ]
 
 REST_FRAMEWORK = {
