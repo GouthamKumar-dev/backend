@@ -81,7 +81,16 @@ class SignupView(APIView):
             )
 
             # Send OTP via Email & SMS
-            send_otp_email(email, otp)
+            # --- START: ERROR HANDLING ADDED ---
+            email_sent = send_otp_email(email, otp)
+            if not email_sent:
+                 # Clean up the temporary OTP entry if email sending failed due to rate limit
+                OTP.objects.filter(identifier=identifier).delete() 
+                return Response(
+                    {"error": "Failed to send OTP. The recipient mailbox is temporarily restricted. Please wait 15 minutes and try again."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS
+                )
+            # --- END: ERROR HANDLING ADDED ---
             # send_otp_sms(phone_number, otp)
             
             # Notify admins about new user signup
@@ -107,7 +116,16 @@ class LoginRequestOTPView(APIView):
                 store_otp(user.phone_number, otp)
                 store_otp(user.email, otp)
 
-                send_otp_email(user.email, otp)
+                # --- START: ERROR HANDLING ADDED ---
+                email_sent = send_otp_email(user.email, otp)
+                if not email_sent:
+                    # Clean up the temporary OTP entry
+                    OTP.objects.filter(identifier=user.email).delete() 
+                    return Response(
+                        {"error": "Failed to send OTP. The recipient mailbox is temporarily restricted. Please wait 15 minutes and try again."},
+                        status=status.HTTP_429_TOO_MANY_REQUESTS
+                    )
+                # --- END: ERROR HANDLING ADDED ---
                 # send_otp_sms(user.phone_number, otp)
 
                 return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
@@ -177,7 +195,16 @@ class ForgotPasswordRequestOTPView(APIView):
         otp = generate_otp()
         store_otp(user.email, otp)
         store_otp(user.phone_number, otp)
-        send_otp_email(user.email, otp)
+        # --- START: ERROR HANDLING ADDED ---
+        email_sent = send_otp_email(user.email, otp)
+        if not email_sent:
+            # Clean up the temporary OTP entry
+            OTP.objects.filter(identifier=user.email).delete() 
+            return Response(
+                {"error": "Failed to send OTP. The recipient mailbox is temporarily restricted. Please wait 15 minutes and try again."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+        # --- END: ERROR HANDLING ADDED ---
         # send_otp_sms(user.phone_number, otp)
 
         return Response({"message": "OTP sent to reset password."}, status=status.HTTP_200_OK)
@@ -352,7 +379,16 @@ class CustomerLoginRequestOTPView(APIView):
             if customer_user:
                 otp = generate_otp()
                 store_otp(customer_user.email, otp)
-                send_otp_email(customer_user.email, otp)
+                # --- START: ERROR HANDLING ADDED ---
+                email_sent = send_otp_email(customer_user.email, otp)
+                if not email_sent:
+                    # Clean up the temporary OTP entry
+                    OTP.objects.filter(identifier=customer_user.email).delete()
+                    return Response(
+                        {"error": "Failed to send OTP. The recipient mailbox is temporarily restricted. Please wait 15 minutes and try again."},
+                        status=status.HTTP_429_TOO_MANY_REQUESTS
+                    )
+                # --- END: ERROR HANDLING ADDED ---
                 return Response({"message": "OTP sent to email."}, status=status.HTTP_200_OK)
 
             return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
