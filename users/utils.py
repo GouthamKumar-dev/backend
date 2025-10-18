@@ -28,10 +28,24 @@ def verify_otp(identifier, otp):
         return False
 
 def send_otp_email(email, otp):
-    """Send OTP via email."""
+    """Send OTP via email and handle rate-limiting errors."""
     subject = "Your OTP Code to login to T-Stocks"
     message = f"Your OTP code is: {otp}. It expires in 5 minutes."
-    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+    
+    try:
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+        return True # Email sent successfully
+        
+    except SMTPRecipientsRefused as e:
+        # Google temporary rate limit error (450)
+        print(f"ERROR: Recipient rate limited or refused: {e}")
+        # The calling view must check for 'False' and return a 429 status.
+        return False
+        
+    except Exception as e:
+        # Catch other errors (Authentication, Connection Refused, etc.)
+        print(f"ERROR: An unknown email error occurred: {e}")
+        return False
     
 #admin notification
 def notify_admins(title, message):
