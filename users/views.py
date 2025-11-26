@@ -18,7 +18,7 @@ from django.contrib.auth import authenticate
 from rest_framework import status
 from ecommerce.logger import logger 
 from .utils import generate_otp, store_otp, send_otp_email, verify_otp
-from users.models import OTP
+from users.models import OTP, DeleteAccountOTP
 from django.utils import timezone 
 from .utils import create_admin_notification
 from .models import AdminNotification
@@ -395,4 +395,97 @@ class CustomerLoginRequestOTPView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+class DeleteAccountRequestOTPView(APIView):
+    """
+    Request OTP for account deletion (customer only)
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        
+        if not email:
+            return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(email=email.lower(), role=UserRole.CUSTOMER)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "Account not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Generate and send OTP
+        otp = generate_otp()
+        DeleteAccountOTP.objects.update_or_create(
+            email=email.lower(),
+            defaults={
+                "otp_code": otp,
+                "created_at": timezone.now(),
+            },
+        )
+
+        email_sent = send_otp_email(email, otp)
+        if not email_sent:
+            DeleteAccountOTP.objects.filter(email=email.lower()).delete()
+            return Response(
+                {"error": "Failed to send OTP. Please try again later."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
+        return Response({"message": "OTP sent to your email for account deletion verification."}, status=status.HTTP_200_OK)
+
+
+class DeleteAccountVerifyView(APIView):
+    """
+    Verify OTP and delete customer account
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        otp = request.data.get("otp")
+
+        if not email or not otp:
+            return Response({"error": "Email and OTP are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            otp_entry = DeleteAccountOTP.objects.get(email=email.lower())
+        except DeleteAccountOTP.DoesNotExist:
+            return Response({"error": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if OTP is expired
+        if otp_entry.is_expired():
+            otp_entry.delete()
+            return Response({"error": "OTP has expired. Please request a new one."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify OTP
+        if otp_entry.otp_code != otp:
+            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(email=email.lower(), role=UserRole.CUSTOMER)
+            
+            # Delete the user
+            user_email = user.email
+            user.delete()
+            
+            # Delete OTP entry
+            otp_entry.delete()
+            
+            # Notify admins
+            create_admin_notification(
+                user=None, 
+                title="Customer account deleted", 
+                message=f"Customer account with email: {user_email} has been deleted.",
+                event_type="account_deletion"
+            )
+
+            return Response({"message": "Your account has been successfully deleted."}, status=status.HTTP_200_OK)
+
+        except CustomUser.DoesNotExist:
+            return Response({"error": "Account not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error deleting account: {str(e)}")
+            return Response({"error": "Failed to delete account. Please try again."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    
     

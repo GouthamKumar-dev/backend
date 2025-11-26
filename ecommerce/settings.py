@@ -33,11 +33,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECURE_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['tstocks.in']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'tstocks.in']
 
 CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
     "https://tstocks.in","https://www.tstocks.in"
 ]
 # Application definition
@@ -69,7 +71,9 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5173","https://www.tstocks.in"
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://www.tstocks.in"
 ]
 
 REST_FRAMEWORK = {
@@ -130,16 +134,25 @@ WSGI_APPLICATION = 'ecommerce.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# For local development with SQLite
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', default='ecommerce_db'),
-        'USER': os.getenv('DB_USER', default='ecommerce_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', default='yourpassword'),
-        'HOST': os.getenv('DB_HOST', default='127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', default='5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# For production with PostgreSQL (uncomment when needed)
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.getenv('DB_NAME', default='ecommerce_db'),
+#         'USER': os.getenv('DB_USER', default='ecommerce_user'),
+#         'PASSWORD': os.getenv('DB_PASSWORD', default='yourpassword'),
+#         'HOST': os.getenv('DB_HOST', default='127.0.0.1'),
+#         'PORT': os.getenv('DB_PORT', default='5432'),
+#     }
+# }
 
 AUTH_USER_MODEL = 'users.CustomUser'
 

@@ -85,6 +85,19 @@ class OTP(models.Model):
     def is_expired(self):
         """Check if OTP is older than 5 minutes"""
         return timezone.now() > self.created_at + datetime.timedelta(minutes=5)
+
+class DeleteAccountOTP(models.Model):
+    """Separate OTP model for account deletion to keep it independent from login OTP"""
+    email = models.CharField(max_length=255, unique=True)
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        """Check if OTP is older than 5 minutes"""
+        return timezone.now() > self.created_at + datetime.timedelta(minutes=5)
+    
+    class Meta:
+        db_table = 'users_delete_account_otp'
     
     #notification for admin
 class AdminNotification(models.Model):
