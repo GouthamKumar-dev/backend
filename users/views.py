@@ -142,6 +142,39 @@ class VerifyOTPView(APIView):
             otp = serializer.validated_data["otp"]
             otp_entry = OTP.objects.filter(identifier=identifier).first()
 
+            # ------------------------------------------------------------------
+            #                     GOOGLE PLAY REVIEW OTP BYPASS
+            # ------------------------------------------------------------------
+            # Allow Google Play testers to log in instantly with:
+            # Email/Identifier → test@example.com
+            # OTP              → 000000
+            # ------------------------------------------------------------------
+            if identifier == "test@example.com" and otp == "000000":
+                user = CustomUser.objects.filter(email=identifier).first()
+
+                # If test user does NOT exist, create it automatically
+                if not user:
+                    user = CustomUser.objects.create(
+                        email="test@example.com",
+                        username="playstoretester",
+                        phone_number="0000000000",
+                        role=UserRole.CUSTOMER,
+                    )
+
+                # Generate tokens for the test user
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    "user": UserSerializer(user).data,
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token),
+                }, status=status.HTTP_200_OK)
+            # ------------------------------------------------------------------
+            #                          END OF BYPASS
+            # ------------------------------------------------------------------
+
+
+            # NORMAL REAL OTP VALIDATION
+
             if otp_entry and otp_entry.otp_code == otp and not otp_entry.is_expired():
                 # Check if user already exists
                 user = CustomUser.objects.filter(email=identifier).first() or CustomUser.objects.filter(phone_number=identifier).first()
