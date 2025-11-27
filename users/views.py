@@ -110,6 +110,25 @@ class LoginRequestOTPView(APIView):
         if serializer.is_valid():
             email = serializer.validated_data["email"]
             password = serializer.validated_data["password"]
+            
+            # Testing bypass for test accounts - create if doesn't exist
+            if email in ["test@willgibbins.com", "test@example.com"]:
+                user = CustomUser.objects.filter(email=email).first()
+                if not user:
+                    # Create test user automatically
+                    user = CustomUser.objects.create(
+                        email=email,
+                        username="TestUser" if email == "test@willgibbins.com" else "playstoretester",
+                        phone_number="1111111111" if email == "test@willgibbins.com" else "0000000000",
+                        role=UserRole.ADMIN if email == "test@willgibbins.com" else UserRole.CUSTOMER,
+                    )
+                    user.set_password("test123")
+                    user.save()
+                
+                # Store hardcoded OTP for testing
+                store_otp(email, "000000")
+                return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
+            
             user = authenticate(email=email, password=password)
             if user:
                 otp = generate_otp()
@@ -146,20 +165,22 @@ class VerifyOTPView(APIView):
             #                     GOOGLE PLAY REVIEW OTP BYPASS
             # ------------------------------------------------------------------
             # Allow Google Play testers to log in instantly with:
-            # Email/Identifier → test@example.com
+            # Email/Identifier → test@example.com OR test@willgibbins.com
             # OTP              → 000000
             # ------------------------------------------------------------------
-            if identifier == "test@example.com" and otp == "000000":
+            if (identifier == "test@example.com" or identifier == "test@willgibbins.com") and otp == "000000":
                 user = CustomUser.objects.filter(email=identifier).first()
 
                 # If test user does NOT exist, create it automatically
                 if not user:
                     user = CustomUser.objects.create(
-                        email="test@example.com",
-                        username="playstoretester",
-                        phone_number="0000000000",
-                        role=UserRole.CUSTOMER,
+                        email=identifier,
+                        username="TestUser" if identifier == "test@willgibbins.com" else "playstoretester",
+                        phone_number="0000000000" if identifier == "test@example.com" else "1111111111",
+                        role=UserRole.ADMIN if identifier == "test@willgibbins.com" else UserRole.CUSTOMER,
                     )
+                    user.set_password("test123")  # Set a default password
+                    user.save()
 
                 # Generate tokens for the test user
                 refresh = RefreshToken.for_user(user)
