@@ -149,7 +149,7 @@ class VerifyOTPView(APIView):
             # Email/Identifier → test@example.com
             # OTP              → 000000
             # ------------------------------------------------------------------
-            if identifier == "test@example.com" and otp == "000000":
+            if identifier == "hariii0811@gmail.com" and otp == "000000":
                 user = CustomUser.objects.filter(email=identifier).first()
 
                 # If test user does NOT exist, create it automatically
