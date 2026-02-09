@@ -1,5 +1,15 @@
 from django.urls import path
-from .views import  CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView, CustomerLoginRequestOTPView,  AdminNotificationListView, DeleteAccountRequestOTPView, DeleteAccountVerifyView 
+from .views import (
+    CustomTokenObtainPairView, LogoutView, CustomTokenRefreshView, user_me, 
+    SignupView, LoginRequestOTPView, VerifyOTPView, ForgotPasswordRequestOTPView, 
+    ResetPasswordView, CreateUserView, AdminUserListView, UpdateShippingAddressView, 
+    CustomerLoginRequestOTPView, AdminNotificationListView, DeleteAccountRequestOTPView, 
+    DeleteAccountVerifyView,
+    # Owner dashboard views
+    owner_dashboard, owner_payment_history, owner_audit_log, owner_list_admins,
+    # Bank details management
+    manage_bank_details, owner_list_admins_bank_details, owner_verify_bank_details
+)
 from rest_framework_simplejwt.views import TokenVerifyView
 
 urlpatterns = [
@@ -26,6 +36,17 @@ urlpatterns = [
     path('admin/list/', AdminUserListView.as_view(), name='admin-users-list'),
     path('me/update-shipping/', UpdateShippingAddressView.as_view(), name='update-shipping'),
     path('admin/notifications/', AdminNotificationListView.as_view(), name='admin-notifications-list'),
+    
+    # ========== OWNER DASHBOARD ==========
+    path('owner/dashboard/', owner_dashboard, name='owner_dashboard'),
+    path('owner/payment-history/', owner_payment_history, name='owner_payment_history'),
+    path('owner/audit-log/', owner_audit_log, name='owner_audit_log'),
+    path('owner/admins/', owner_list_admins, name='owner_list_admins'),
+    
+    # ========== BANK DETAILS MANAGEMENT ==========
+    path('bank-details/', manage_bank_details, name='manage_bank_details'),  # Admin: GET/PUT their bank details
+    path('owner/bank-details/', owner_list_admins_bank_details, name='owner_list_admins_bank_details'),  # Owner: View all
+    path('owner/bank-details/<int:admin_id>/verify/', owner_verify_bank_details, name='owner_verify_bank_details'),  # Owner: Verify
 ]
 
 

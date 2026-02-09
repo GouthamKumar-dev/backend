@@ -1,6 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from .models import Product, Category, Favorite, UploadedImage
 from django.shortcuts import get_object_or_404
@@ -23,6 +23,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     pagination_class = ProductPagination
+    parser_classes = [JSONParser, MultiPartParser, FormParser]  # Accept JSON and file uploads
     http_method_names = ['get', 'post', 'delete', 'put']
     permission_classes = [IsAuthenticated]  # Default for all methods
 
@@ -35,16 +36,25 @@ class ProductViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        """ Optionally filter products by 'is_active' query param. """
+        """ 
+        Filter products by admin for admin users.
+        Owner sees all products. Customers see all active products.
+        """
         queryset = Product.objects.all().order_by("name")
-        is_active = self.request.query_params.get('is_active', None)
+        user = self.request.user
         
+        # If admin is logged in, show their products OR products with no admin assigned
+        if user.is_authenticated and user.role == 'admin':
+            queryset = queryset.filter(Q(admin=user) | Q(admin__isnull=True))
+        
+        # Filter by is_active if provided
+        is_active = self.request.query_params.get('is_active', None)
         if is_active is not None:
             # Convert 'is_active' to a boolean
             is_active = is_active.lower() in ['true']
-            queryset = queryset.filter(is_active=is_active).order_by("name")
+            queryset = queryset.filter(is_active=is_active)
         
-        return queryset
+        return queryset.order_by("name")
     
     def list(self, request):
         """ Paginate and return products sorted alphabetically. """
@@ -82,22 +92,42 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request, *args, **kwargs):
-        """ Create a product and ensure its category is active """
-        response = super().create(request, *args, **kwargs)  # Let DRF handle the creation
-        product_id = response.data.get("product_id")  # Get the new product's ID
-         # Ensure its category is active
-        product = Product.objects.filter(product_id=product_id).first()
-        if product and product.category:
-            product.category.is_active = True
-            product.category.save()
-
-        return response
+        """ 
+        Create a product and auto-assign logged-in admin.
+        Ensure its category is active.
+        """
+        # Auto-assign admin if user is an admin
+        if request.user.is_authenticated and request.user.role == 'admin':
+            # Make a mutable copy of request data
+            data = request.data.copy()
+            data['admin'] = request.user.id
+            
+            # Use the modified data for serialization
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            
+            # Ensure category is active
+            product_id = serializer.data.get("product_id")
+            product = Product.objects.filter(product_id=product_id).first()
+            if product and product.category:
+                product.category.is_active = True
+                product.category.save()
+            
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            return Response(
+                {"error": "Only admins can create products"},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all().order_by("name")
     serializer_class = CategorySerializer
     pagination_class = ProductPagination
+    parser_classes = [JSONParser, MultiPartParser, FormParser]  # Accept JSON and file uploads
     http_method_names = ['get', 'post', 'delete', 'put']
     permission_classes = [IsAuthenticated]  # Default permission
 
@@ -348,8 +378,9 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         normal_image = request.FILES.get('normal_image')
         carousel_image = request.FILES.get('carousel_image')
-        product_id = request.data.get("product")
-        category_id = request.data.get("category")
+        # Accept both "product" and "product_id" for backwards compatibility
+        product_id = request.data.get("product_id") or request.data.get("product")
+        category_id = request.data.get("category_id") or request.data.get("category")
 
         if not normal_image and not carousel_image:
             return Response({"error": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
@@ -398,6 +429,7 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+
         serializer = self.get_serializer(created_images, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -405,8 +437,9 @@ class UploadedImageViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         """ Updates an image file, type, and ensures only one foreign key (Product or Category) is set. """
         instance = self.get_object()
-        product_id = request.data.get("product")
-        category_id = request.data.get("category")
+        # Accept both "product" and "product_id" for backwards compatibility
+        product_id = request.data.get("product_id") or request.data.get("product")
+        category_id = request.data.get("category_id") or request.data.get("category")
         new_image = request.FILES.get("image")
         new_type = request.data.get("type")  # New: type field
 

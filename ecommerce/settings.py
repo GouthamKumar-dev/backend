@@ -1,4 +1,3 @@
-
 """
 Django settings for ecommerce project.
 
@@ -33,18 +32,25 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECURE_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'tstocks.in']
+# During development allow all hosts to avoid DisallowedHost errors from emulators/devices.
+# In production, set ALLOWED_HOSTS via the ALLOWED_HOSTS env var (comma-separated).
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",
-    "https://tstocks.in","https://www.tstocks.in"
+    "https://helmstonegroup.com",
+    "https://www.helmstonegroup.com"
 ]
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',  # Django Channels ASGI server (must be first)
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -54,6 +60,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'drf_yasg',
     'corsheaders',
+    'channels',  # Django Channels for WebSocket
     'orders',
     'products',
     'users'
@@ -70,11 +77,18 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
+# Disable automatic slash appending to prevent 301 redirects and disk cache issues
+APPEND_SLASH = False
+
+# CORS Configuration - use env var in production, fallback to dev origins
+cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if cors_origins_env:
+    CORS_ALLOWED_ORIGINS = cors_origins_env.split(',')
+else:
+    CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://www.tstocks.in"
-]
+    ]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -99,16 +113,71 @@ SIMPLE_JWT = {
 # TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 # TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+# Email configuration: prefer SMTP when credentials are provided.
+# If credentials are missing during development (DEBUG=True) we fall back to
+# the console backend so OTPs are printed to the runserver/console and
+# developers can continue without an SMTP account configured.
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == 'True'
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
+# Determine which email backend to use
+if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+else:
+    if DEBUG:
+        # In development, print outgoing emails to console when SMTP creds are missing.
+        EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+        # Small informative message helpful during local runs.
+        try:
+            # Use print so the message appears in stdout when runserver is used.
+            print("[ecommerce.settings] WARNING: EMAIL_HOST_USER or EMAIL_HOST_PASSWORD not set. Using console email backend (OTP will be printed to console).")
+        except Exception:
+            pass
+    else:
+        # In production, prefer SMTP backend even if env missing; this will typically
+        # surface errors during startup/attempted send and should be fixed via env.
+        EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+# Default from address used for sending emails; prefer configured SMTP user
+# or fall back to a generic no-reply address for development.
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@tstocks.local")
+
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
-WEBHOOK = os.getenv("WEBHOOK")
+# Load webhook secret from any of the commonly used env vars to maintain backwards compatibility
+# - WEBHOOK_SECRET (preferred)
+# - WEBHOOK (older name used in some .env files)
+# - RAZORPAY_WEBHOOK_SECRET (explicit)
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET") or os.getenv("WEBHOOK") or os.getenv("RAZORPAY_WEBHOOK_SECRET")  # Razorpay webhook secret for signature verification
+
+# QuickEKYC Settings
+QUICKEKYC_API_KEY = os.getenv("QUICKEKYC_API_KEY")
+QUICKEKYC_API_SECRET = os.getenv("QUICKEKYC_API_SECRET")
+QUICKEKYC_WEBHOOK_SECRET = os.getenv("QUICKEKYC_WEBHOOK_SECRET")  # For verifying webhook signatures
+
+# Django Channels Configuration (Phase 4)
+ASGI_APPLICATION = 'ecommerce.asgi.application'
+
+# Channel Layer Configuration
+# For development/testing without Redis (single server only):
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    },
+}
+
+# For production with Redis (uncomment and comment out InMemory above):
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             "hosts": [(os.getenv('REDIS_HOST', '127.0.0.1'), int(os.getenv('REDIS_PORT', 6379)))],
+#         },
+#     },
+# }
 
 
 ROOT_URLCONF = 'ecommerce.urls'

@@ -31,6 +31,8 @@ class ProductSerializer(serializers.ModelSerializer):
     favorite_count = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     offer_price = serializers.SerializerMethodField()  # Dynamically fetched
+    admin_id = serializers.IntegerField(source='admin.id', read_only=True)
+    admin_name = serializers.CharField(source='admin.get_full_name', read_only=True)
 
 
     class Meta:
@@ -50,6 +52,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "is_active",
             "favorite_count",
             "images",
+            "admin_id",  # NEW: Admin who owns this product
+            "admin_name",  # NEW: Admin's full name
         ]
         
     def get_offer_price(self, obj):

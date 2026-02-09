@@ -17,14 +17,14 @@ if CustomUser.objects.filter(email='admin@upstocks.com').exists():
 else:
     # Create admin user
     admin = CustomUser.objects.create_superuser(
-        phone_number='1234567890',
-        username='admin',
-        email='admin@upstocks.com',
-        password='admin123'
+        phone_number='9574586985',
+        username='Goutham',
+        email='gouthamkumar091@gmail.com',
+        password='Admin@123'
     )
     print('Admin user created successfully!')
-    print(f'Email: admin@upstocks.com')
-    print(f'Username: admin')
-    print(f'Password: admin123')
-    print(f'Phone: 1234567890')
+    print(f'Email: gouthamkumar091@gmail.com')
+    print(f'Username: Goutham')
+    print(f'Password: Admin@123')
+    print(f'Phone: 9574586985')
     print(f'Role: {admin.role}')

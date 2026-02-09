@@ -52,6 +52,16 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     
+    # NEW: Link product to admin who owns it
+    admin = models.ForeignKey(
+        'users.CustomUser',
+        on_delete=models.CASCADE,
+        related_name='admin_products',
+        null=True,  # Temporary for migration - will be required after data migration
+        blank=True,
+        limit_choices_to={'role': 'admin'}
+    )
+    
     @property
     def offer_price(self):
         """Dynamically calculate offer price without storing in DB."""

@@ -1,6 +1,8 @@
 import random
 from django.core.mail import send_mail
 from django.conf import settings
+from smtplib import SMTPRecipientsRefused, SMTPAuthenticationError
+from django.core.mail import get_connection, EmailMessage
 # from twilio.rest import Client
 from .models import OTP
 from .models import AdminNotification
@@ -34,17 +36,44 @@ def send_otp_email(email, otp):
     
     try:
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
-        return True # Email sent successfully
-        
+        return True  # Email sent successfully
+
+    except SMTPAuthenticationError as e:
+        # Authentication failed (bad credentials). In development, fall back to console backend
+        # so developers can still see OTPs. In production, return False to signal failure.
+        print(f"ERROR: SMTP authentication failed: {e}")
+        if settings.DEBUG:
+            try:
+                conn = get_connection('django.core.mail.backends.console.EmailBackend')
+                EmailMessage(subject, message, settings.DEFAULT_FROM_EMAIL, [email], connection=conn).send()
+                print("INFO: Fallback to console email backend used (DEBUG=True). OTP printed to console.)")
+                return True
+            except Exception as e2:
+                print(f"ERROR: Fallback to console backend also failed: {e2}")
+                return False
+        return False
+
     except SMTPRecipientsRefused as e:
-        # Google temporary rate limit error (450)
+        # Recipient refused (rate limit or invalid recipient)
         print(f"ERROR: Recipient rate limited or refused: {e}")
         # The calling view must check for 'False' and return a 429 status.
         return False
-        
+
     except Exception as e:
-        # Catch other errors (Authentication, Connection Refused, etc.)
-        print(f"ERROR: An unknown email error occurred: {e}")
+        # Catch other errors (Connection Refused, timeout, etc.).
+        # If we're in DEBUG and the error looks like an auth/bad-credentials issue,
+        # fall back to the console backend so developers can continue.
+        err_text = str(e)
+        print(f"ERROR: An unknown email error occurred: {err_text}")
+        if settings.DEBUG and ("535" in err_text or "BadCredentials" in err_text or "authentication" in err_text.lower()):
+            try:
+                conn = get_connection('django.core.mail.backends.console.EmailBackend')
+                EmailMessage(subject, message, settings.DEFAULT_FROM_EMAIL, [email], connection=conn).send()
+                print("INFO: Fallback to console email backend used (DEBUG=True). OTP printed to console.)")
+                return True
+            except Exception as e2:
+                print(f"ERROR: Fallback to console backend also failed: {e2}")
+                return False
         return False
     
 #admin notification

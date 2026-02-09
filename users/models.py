@@ -9,6 +9,7 @@ class UserRole(models.TextChoices):
     CUSTOMER = 'customer', 'Customer'
     ADMIN = 'admin', 'Admin'
     STAFF = 'staff', 'Staff'
+    OWNER = 'owner', 'Owner'  # Platform owner who collects 2% commission
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, phone_number, username, email, password=None, role=UserRole.CUSTOMER, **extra_fields):
@@ -54,6 +55,25 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     created_by = models.CharField(max_length=100, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Bank Details (For Admin settlements)
+    bank_account_holder_name = models.CharField(max_length=255, blank=True, null=True)
+    bank_account_number = models.CharField(max_length=50, blank=True, null=True)
+    bank_ifsc_code = models.CharField(max_length=11, blank=True, null=True)
+    bank_name = models.CharField(max_length=255, blank=True, null=True)
+    bank_branch = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Alternative payment methods
+    upi_id = models.CharField(max_length=100, blank=True, null=True)
+    
+    # KYC/Verification details
+    pan_number = models.CharField(max_length=10, blank=True, null=True)
+    gstin = models.CharField(max_length=15, blank=True, null=True)
+    
+    # Verification status
+    bank_details_verified = models.BooleanField(default=False)
+    bank_verified_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_banks')
+    bank_verified_at = models.DateTimeField(null=True, blank=True)
 
     # Use email as the unique identifier
     USERNAME_FIELD = 'email'
@@ -118,5 +138,112 @@ class AdminNotification(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.created_at}"
+
+
+# ========== VENDOR/BENEFICIARY MANAGEMENT ==========
+class VendorAccount(models.Model):
+    """
+    Represents a vendor/store owner who will receive settlements after commission deduction.
+    Each vendor needs KYC verification before receiving payments.
+    """
+    ACCOUNT_STATUS_CHOICES = [
+        ('pending', 'Pending Verification'),
+        ('active', 'Active'),
+        ('suspended', 'Suspended'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    vendor_id = models.AutoField(primary_key=True)
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='vendor_account')
+    business_name = models.CharField(max_length=255)
+    business_type = models.CharField(max_length=100, blank=True, null=True)  # Retailer, Wholesaler, etc.
+    
+    # Razorpay Linked Account Details
+    razorpay_account_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    razorpay_linked_account_status = models.CharField(max_length=50, blank=True, null=True)
+    
+    # Bank Account Details
+    bank_account_number = models.CharField(max_length=50, blank=True, null=True)
+    bank_ifsc_code = models.CharField(max_length=20, blank=True, null=True)
+    bank_account_holder_name = models.CharField(max_length=255, blank=True, null=True)
+    bank_name = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Status & Verification
+    account_status = models.CharField(max_length=20, choices=ACCOUNT_STATUS_CHOICES, default='pending')
+    kyc_verified = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    
+    # Commission Settings (can be customized per vendor)
+    commission_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=2.0)  # Default 2%
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    verified_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        db_table = 'vendor_accounts'
+    
+    def __str__(self):
+        return f"{self.business_name} ({self.user.username})"
+
+
+# ========== KYC VERIFICATION ==========
+class KYCVerification(models.Model):
+    """
+    Stores KYC verification details for vendors using QuickEKYC API.
+    """
+    KYC_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('in_review', 'In Review'),
+        ('verified', 'Verified'),
+        ('rejected', 'Rejected'),
+        ('resubmit', 'Resubmit Required'),
+    ]
+    
+    DOCUMENT_TYPE_CHOICES = [
+        ('aadhaar', 'Aadhaar Card'),
+        ('pan', 'PAN Card'),
+        ('bank_statement', 'Bank Statement'),
+        ('business_proof', 'Business Proof'),
+        ('gst_certificate', 'GST Certificate'),
+    ]
+    
+    kyc_id = models.AutoField(primary_key=True)
+    vendor = models.ForeignKey(VendorAccount, on_delete=models.CASCADE, related_name='kyc_documents')
+    
+    # Document Details
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPE_CHOICES)
+    document_number = models.CharField(max_length=100, blank=True, null=True)
+    document_file = models.FileField(upload_to='kyc_documents/', blank=True, null=True)
+    
+    # QuickEKYC Integration
+    quickekyc_verification_id = models.CharField(max_length=255, blank=True, null=True)
+    quickekyc_response = models.JSONField(blank=True, null=True)  # Store API response
+    
+    # Verification Status
+    status = models.CharField(max_length=20, choices=KYC_STATUS_CHOICES, default='pending')
+    rejection_reason = models.TextField(blank=True, null=True)
+    
+    # Admin Review
+    reviewed_by = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='reviewed_kyc_documents'
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    
+    # Timestamps
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'kyc_verifications'
+        unique_together = ('vendor', 'document_type')
+    
+    def __str__(self):
+        return f"{self.vendor.business_name} - {self.document_type} ({self.status})"
 
 

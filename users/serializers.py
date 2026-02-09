@@ -13,6 +13,49 @@ class UserSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ['user_id', 'username', 'email', 'phone_number','default_shipping_address', 'role']
 
+class BankDetailsSerializer(serializers.ModelSerializer):
+    """Serializer for admin bank details - sensitive information"""
+    class Meta:
+        model = CustomUser
+        fields = [
+            'bank_account_holder_name',
+            'bank_account_number',
+            'bank_ifsc_code',
+            'bank_name',
+            'bank_branch',
+            'upi_id',
+            'pan_number',
+            'gstin',
+            'bank_details_verified',
+            'bank_verified_at'
+        ]
+        read_only_fields = ['bank_details_verified', 'bank_verified_at']
+
+class AdminProfileSerializer(serializers.ModelSerializer):
+    """Extended serializer for admin profile with bank details"""
+    class Meta:
+        model = CustomUser
+        fields = [
+            'user_id', 
+            'username', 
+            'email', 
+            'phone_number',
+            'default_shipping_address', 
+            'role',
+            'bank_account_holder_name',
+            'bank_account_number',
+            'bank_ifsc_code',
+            'bank_name',
+            'bank_branch',
+            'upi_id',
+            'pan_number',
+            'gstin',
+            'bank_details_verified',
+            'bank_verified_at',
+            'created_at'
+        ]
+        read_only_fields = ['bank_details_verified', 'bank_verified_at']
+
 # **Login Serializer**
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField()
@@ -113,4 +156,86 @@ class AdminNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminNotification
         fields = '__all__'
+
+
+# ========== VENDOR & KYC SERIALIZERS ==========
+from .models import VendorAccount, KYCVerification
+
+class VendorAccountSerializer(serializers.ModelSerializer):
+    user_details = UserSerializer(source='user', read_only=True)
+    kyc_status = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = VendorAccount
+        fields = [
+            'vendor_id', 'user', 'user_details', 'business_name', 'business_type',
+            'razorpay_account_id', 'razorpay_linked_account_status',
+            'bank_account_number', 'bank_ifsc_code', 'bank_account_holder_name', 'bank_name',
+            'account_status', 'kyc_verified', 'kyc_status', 'is_active',
+            'commission_percentage', 'created_at', 'updated_at', 'verified_at'
+        ]
+        read_only_fields = ['vendor_id', 'razorpay_account_id', 'kyc_verified', 'verified_at']
+    
+    def get_kyc_status(self, obj):
+        """Get overall KYC verification status"""
+        kyc_docs = obj.kyc_documents.all()
+        if not kyc_docs.exists():
+            return "not_submitted"
+        
+        if all(doc.status == 'verified' for doc in kyc_docs):
+            return "verified"
+        elif any(doc.status == 'rejected' for doc in kyc_docs):
+            return "rejected"
+        elif any(doc.status == 'in_review' for doc in kyc_docs):
+            return "in_review"
+        else:
+            return "pending"
+
+
+class KYCVerificationSerializer(serializers.ModelSerializer):
+    vendor_details = VendorAccountSerializer(source='vendor', read_only=True)
+    reviewed_by_details = UserSerializer(source='reviewed_by', read_only=True)
+    
+    class Meta:
+        model = KYCVerification
+        fields = [
+            'kyc_id', 'vendor', 'vendor_details', 'document_type', 'document_number',
+            'document_file', 'quickekyc_verification_id', 'quickekyc_response',
+            'status', 'rejection_reason', 'reviewed_by', 'reviewed_by_details',
+            'reviewed_at', 'submitted_at', 'updated_at'
+        ]
+        read_only_fields = ['kyc_id', 'quickekyc_verification_id', 'quickekyc_response', 
+                           'reviewed_at', 'submitted_at']
+    
+    def validate_document_type(self, value):
+        """Ensure vendor doesn't submit duplicate document types"""
+        vendor = self.context.get('vendor')
+        if vendor and KYCVerification.objects.filter(vendor=vendor, document_type=value).exists():
+            if not self.instance:  # Only check on creation, not update
+                raise serializers.ValidationError(f"Document type '{value}' already submitted for this vendor.")
+        return value
+
+
+class KYCVerificationCreateSerializer(serializers.ModelSerializer):
+    """Simplified serializer for KYC document submission"""
+    class Meta:
+        model = KYCVerification
+        fields = ['vendor', 'document_type', 'document_number', 'document_file']
+    
+    def create(self, validated_data):
+        validated_data['status'] = 'pending'
+        return super().create(validated_data)
+
+
+class VendorAccountCreateSerializer(serializers.ModelSerializer):
+    """Simplified serializer for vendor registration"""
+    class Meta:
+        model = VendorAccount
+        fields = ['user', 'business_name', 'business_type', 'bank_account_number', 
+                 'bank_ifsc_code', 'bank_account_holder_name', 'bank_name']
+    
+    def create(self, validated_data):
+        validated_data['account_status'] = 'pending'
+        validated_data['kyc_verified'] = False
+        return super().create(validated_data)
 

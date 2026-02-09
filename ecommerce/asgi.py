@@ -1,5 +1,5 @@
 """
-ASGI config for ecommerce project.
+ASGI config for ecommerce project with Django Channels support.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -8,9 +8,26 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/asgi/
 """
 
 import os
-
 from django.core.asgi import get_asgi_application
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+from channels.security.websocket import AllowedHostsOriginValidator
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ecommerce.settings')
 
-application = get_asgi_application()
+# Initialize Django ASGI application early
+django_asgi_app = get_asgi_application()
+
+import orders.routing
+
+application = ProtocolTypeRouter({
+    "http": django_asgi_app,
+    "websocket": AllowedHostsOriginValidator(
+        AuthMiddlewareStack(
+            URLRouter(
+                orders.routing.websocket_urlpatterns
+            )
+        )
+    ),
+})
+
